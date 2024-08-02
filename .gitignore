@@ -59,6 +59,8 @@ slurm_out
 .fuse_hidden*
 
 output/
+data/
 
-# TODO remove later, when final version
-*.Rmd
+
+analysis/run_notebooks.R
+tmp.txt

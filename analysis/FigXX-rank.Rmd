@@ -1,0 +1,98 @@
+---
+title: "Notebook to reproduce Figure XXXX"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    interactions: "data/cci_scRNAseq/402c_filtering_aggregated_res.rds"
+    is_directed: TRUE
+    condition_varname: "Region"
+    sender: "Differentiated_like"
+    receiver: "Myeloid_Immunosuppressive"
+    region_oi: "TC"
+    output_dir: "output"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+
+options(ggrepel.max.overlaps = Inf)
+
+pacman::p_load(glue, data.table, tidyverse, stringr, ggplot2, GaitiLabUtils, readxl, ggplot2, ggrastr, ggtext)
+
+create_dir(params$output_dir)
+
+# params <- list()
+# params$interactions <- "data/cci_scRNAseq/402c_filtering_aggregated_res.rds"
+# params$is_directed <- TRUE
+# params$condition_varname <- "Region"
+# params$sender <- "Differentiated_like"
+# params$receiver <- "Myeloid_Immunosuppressive"
+# params$region_oi <- "TC"
+```
+
+## Prepare & format data
+
+```{r }
+source_target_oi <- paste0(params$sender, "__", params$receiver)
+source_target_oi_formatted <- str_replace_all(source_target_oi, c("/" = "_", " " = "_"))
+
+# Load detected interactions...")
+detected_interactions <- readRDS(params$interactions) %>%
+    # Only keep significant interactions based on p-adj, keep pair and region of interest
+    filter(
+        pval_adj < 0.05, source_target == c(paste0(params$sender, "__", params$receiver)),
+        Region == params$region_oi
+    ) %>%
+    mutate(log10p = -log10(pval_adj)) %>%
+    arrange(desc(log10p), .by_group = TRUE) %>%
+    distinct(complex_interaction, .keep_all = TRUE) %>%
+    separate(complex_interaction, into = c("ligand_complex", "receptor_complex"), sep = "__", remove = FALSE) %>%
+    mutate(
+        # Add rank basd on on -log10(p-adj)
+        order_id = row_number(),
+        # Formatting strings for plot
+        complex_interaction = str_replace_all(complex_interaction, "__", "-")
+    )
+```
+
+## Visualize
+```{r, fig.width=10, fig.height=10}
+p <- ggplot(
+    data = detected_interactions,
+    aes(x = order_id, y = log10p)
+) +
+    geom_point(stroke = NA) +
+    GBMutils::GBM_theme() +
+    labs(
+        y = "-log10(p-adj)", x = "rank by -log10(p-adj)",
+        title = str_replace_all(glue("{params$sender} - {params$receiver}"), "_", "-"),
+    ) +
+    # Label top-2 interactions
+    ggrepel::geom_label_repel(
+        data = detected_interactions %>% filter(order_id <= 2),
+        aes(
+            label = complex_interaction
+        ),
+        min.segment.length = unit(0.1, "lines"),
+        show.legend = FALSE
+    ) +
+    theme(
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        strip.text.y.right = element_text(angle = 0, hjust = 0)
+    ) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    theme(aspect.ratio = 1) +
+    coord_equal()
+
+ggsave(
+    plot = p,
+    filename = glue("{params$output_dir}/rank_plot_{source_target_oi_formatted}_in_{params$region_oi}.pdf"), height = 15, width = 15
+)
+```
+
+## Session Info
+```{r, echo = FALSE}
+sessionInfo()
+```

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # TODO change to path to directory with the cloned Github repo.  
 project_dir="scrnaseq-cellcomm-pipeline"
 

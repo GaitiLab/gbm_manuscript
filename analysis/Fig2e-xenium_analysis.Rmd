@@ -1,0 +1,237 @@
+---
+title: "Notebook to reproduce Figure 2e"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/xenium_analysis"
+    stats_res: "data/Xenium/PIMO76-6509-cortex__cell_type__k15nn_stats_res.rds"
+    neighbors_shuffled_df: "data/Xenium/PIMO76-6509-cortex__cell_type__k15nn_shuffled_mean.rds"
+    cell_boundaries: "data/Xenium/cell_boundaries.csv.gz"
+    n_cores: 8
+    meta: "data/Xenium/PIMO76-6509-cortex__meta_annot_w_expr_counts_ROI.rds"
+output: html_document
+---
+
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+
+pacman::p_load(glue, data.table, tidyverse, stringr, ggplot2, GaitiLabUtils)
+
+# Set color palette for spatial cell type distribution
+colors <- GBMutils::load_color_palette("CCI_CellClass_L2_2")
+names(colors)[names(colors) == "Myeloid_Immunosuppressive"] <- "Myeloid"
+names(colors)[names(colors) == "Endothelial"] <- "BV"
+celltypes <- names(colors)
+
+colors[["Undetermined"]] <- "lightgrey"
+colors[["Other"]] <- "lightgrey"
+
+
+# Define colors for plot
+color_labels <- GBMutils::load_color_palette("Divergent_1")
+
+# Defining labels for plot
+xlabels <-
+    list(
+        "mean_frac" = "Mean fraction of neighbors that are ",
+        "mean_n_cells" = "Mean number of neighbors that are "
+    )
+# set base name for output figure for co-localization
+plt_prefix <- glue("{params$output_dir}/PIMO76-6509-cortex__cell_type__k15nn")
+
+# params <- list()
+# params$output_dir <- "output/xenium_analysis"
+
+# # Required for cell colocalization
+# params$stats_res <- "data/Xenium/PIMO76-6509-cortex__cell_type__k15nn_stats_res.rds"
+# params$neighbors_shuffled_df <- "data/Xenium/PIMO76-6509-cortex__cell_type__k15nn_shuffled_mean.rds"
+
+# # Required for spatial distribution plot
+# params$cell_boundaries <- "data/Xenium/cell_boundaries.csv.gz"
+# params$n_cores <- 8
+# params$meta <- "data/Xenium/PIMO76-6509-cortex__meta_annot_w_expr_counts_ROI.rds"
+```
+
+## Spatial cell type distribution
+
+Generating polygons may take some time. 
+```{r}
+# Load segmentation (cell or nuclear boundaries)
+cell_boundaries <- data.table::fread(params$cell_boundaries) %>% data.frame()
+# Create polygons representing the cell type boundaries
+polygons_df <- do.call(
+    rbind,
+    # Create a polygon for each cell
+    parallel::mclapply(cell_boundaries$cell_id %>% unique(),
+        GaitiLabUtils::create_polygon,
+        cell_boundaries = cell_boundaries,
+        mc.cores = params$n_cores
+    )
+) %>%
+    arrange(match(cell_id, unique(cell_boundaries$cell_id)))
+# Saving for later use
+saveRDS(polygons_df, glue("{params$output_dir}/polygons_df.rds"))
+```
+
+### All cell types
+
+```{r,  fig.width = 15, fig.height = 15}
+meta <- readRDS(params$meta)
+
+# Add metadata
+# Only keep cells that are kept after QC/preprocessing
+polygons_df <- polygons_df %>%
+    left_join(meta, by = "cell_id") %>%
+    filter(cell_id %in% unique(meta$cell_id))
+
+# Visualize
+p_filled <- ggplot(polygons_df, aes(x = vertex_x, y = vertex_y)) +
+    geom_polygon(aes(
+        group = cell_id,
+        # Color by celltypes of interest
+        fill = cell_type
+    ), show.legend = TRUE, linewidth = 0.15) +
+    ggplot2::labs(
+        x = "X (µm)", y = "Y (µm)",
+        subtitle = glue::glue("N={nrow(polygons_df)}")
+    ) +
+    scale_fill_manual(
+        values = colors,
+        guide = guide_legend(override.aes = list(size = 5, linewidth = 2), title = "Annotation")
+    ) +
+    ggplot2::coord_equal(ratio = 1) +
+    ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+    ggplot2::scale_y_continuous(breaks = scales::pretty_breaks()) +
+    ggplot2::expand_limits(x = 0, y = 0) +
+    ggplot2::scale_y_reverse() +
+    GBMutils::GBM_theme() +
+    ggplot2::theme(
+        panel.background = ggplot2::element_rect(fill = "black"), aspect.ratio = 1,
+        legend.title.position = "top",
+        legend.direction = "horizontal",
+        legend.key = element_rect(fill = "white")
+    )
+# Save plot
+ggsave(plot = p_filled, filename = glue("{params$output_dir}/PIMO76-6509-cortex_ROI__distribution__cell_segmentation_filled_all_celltypes.pdf"), width = 15, height = 15)
+```
+
+### Individual cell types
+
+```{r,  fig.width = 15, fig.height = 15}
+celltypes_oi <- c("Neuron", "BV", "Progenitor_like", "Myeloid")
+
+# Visualize
+polygons_df_subset <- polygons_df %>%
+    filter(cell_type %in% celltypes_oi) %>%
+    mutate(cell_type = factor(cell_type, levels = celltypes_oi))
+p_filled_by_celltype <- ggplot(polygons_df_subset, aes(x = vertex_x, y = vertex_y)) +
+    geom_polygon(aes(
+        group = cell_id,
+        # Color by celltypes of interest
+        fill = cell_type
+    ), show.legend = TRUE, linewidth = 0.15) +
+    ggh4x::facet_wrap2(. ~ cell_type, nrow = 2) +
+    ggplot2::labs(
+        x = "X (µm)", y = "Y (µm)"
+    ) +
+    scale_fill_manual(
+        values = colors,
+        guide = "none"
+    ) +
+    ggplot2::coord_equal(ratio = 1) +
+    ggplot2::scale_x_continuous(breaks = scales::pretty_breaks()) +
+    ggplot2::scale_y_continuous(breaks = scales::pretty_breaks()) +
+    ggplot2::expand_limits(x = 0, y = 0) +
+    ggplot2::scale_y_reverse() +
+    GBMutils::GBM_theme() +
+    ggplot2::theme(
+        panel.background = ggplot2::element_rect(fill = "black"), aspect.ratio = 1,
+        legend.title.position = "top",
+        legend.direction = "horizontal",
+        legend.key = element_rect(fill = "white")
+    )
+
+# Save plot
+ggsave(plot = p_filled_by_celltype, filename = glue("{params$output_dir}/PIMO76-6509-cortex_ROI__distribution__cell_segmentation_filled_celltypes_oi.pdf"), width = 20, height = 20)
+```
+
+## Co-localization of cell types
+```{r,  fig.width = 7.5, fig.height = 6}
+# Load dataframe with computed statistics
+stats_res <- readRDS(params$stats_res) %>%
+    separate(source_target, into = c("source", "target"), remove = FALSE, sep = "__") %>%
+    # Keep pairs that are of interest a priori: malignant - TME and remove cell type pairs with 'Undetermined', also remove self-pairs (cell type A - cell type A)
+    filter(
+        !str_detect(source_target, "Undetermined"), source != target,
+        str_detect(source, "Progenitor|Differentiated")
+    ) %>%
+    mutate(
+        # For formatting purposes in plot
+        source_target = str_replace_all(source_target, c("__" = " - ", "_" = "-")),
+        neg_log10_padj = -log10(p.adjust(pval, method = "bonferroni"))
+    )
+
+# for visualization purposes
+celltype_order <- stats_res %>%
+    group_by(source) %>%
+    arrange(target, .by_group = TRUE) %>%
+    pull(source_target) %>%
+    unique()
+stats_res <- stats_res %>% mutate(source_target = factor(as.character(source_target), levels = celltype_order))
+
+# Define limits for legend
+max_diff <- plyr::round_any(max(stats_res$mean_diff), .5, f = ceiling)
+min_diff <- plyr::round_any(min(stats_res$mean_diff), .5, f = floor)
+max_abs <- max(abs(c(max_diff, min_diff)))
+
+p <- ggplot(data = stats_res, aes(x = source_target, y = Sample, size = neg_log10_padj, fill = mean_diff)) +
+    geom_point(pch = 21, color = "black") +
+    GBMutils::GBM_theme() +
+    scale_fill_gradient2(
+        mid = color_labels[["mid"]], midpoint = 0, low = color_labels[["low"]], high = color_labels[["high"]],
+        breaks = scales::pretty_breaks(),
+        n.breaks = 3,
+        limits = c(-max_abs, max_abs),
+    ) +
+    scale_x_discrete(
+        limits = celltype_order
+    ) +
+    guides(
+        fill = guide_colorbar(
+            title.position = "top",
+            title.hjust = 0.5,
+            title = "mean_observed - mean_null",
+            barwidth = unit(10, "lines"),
+            barheight = unit(0.9, "lines"),
+        ),
+        size = guide_legend(
+            title.position = "top", title = "-log10(padj)", title.hjust = 0.5, label.position = "bottom",
+        )
+    ) +
+    theme(
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        legend.key.width = unit(2, "lines"),
+        legend.box = "vertical",
+        axis.line.x = element_blank(),
+        axis.ticks.x = element_blank()
+    ) +
+    labs(
+        y = "Sample", x = "Source-target pair"
+    ) +
+    # Ensure that every dot is clearly visible
+    scale_size(range = c(3, 8)) +
+    coord_flip()
+p
+# Save dotplot as pdf
+ggsave(
+    plot = p, filename = glue("{plt_prefix}_dotplot_w_mean_diff.pdf"),
+    width = 7.5, height = 6
+)
+```
+
+## Session Info
+```{r, echo = FALSE}
+sessionInfo()
+```

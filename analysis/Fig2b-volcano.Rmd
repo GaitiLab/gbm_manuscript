@@ -1,0 +1,170 @@
+---
+title: "Notebook to reproduce Figure 2b"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/"
+    avg_expr: "data/cci/mean_exp_by_Sample__CCI_CellClass_L2_2_RNA_counts.rds"
+    meta: "data/cci/gbm_regional_study__metadata.rds"
+    interactions: "data/cci/402c_filtering_aggregated_res.rds"
+    condition_varname: "Region"
+    pval_type: "pval_adj"
+    condition_oi: "PT"
+    pair_y: "Neuron__Invasive-high OPC/NPC1"
+    pair_x: "Neuron__Progenitor_like"
+    alpha: 0.05
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r}
+params <- list()
+params$output_dir <- "output/"
+params$avg_expr <- "data/cci/mean_exp_by_Sample__CCI_CellClass_L2_2_RNA_counts.rds"
+params$meta <- "data/cci/gbm_regional_study__metadata.rds"
+params$interactions <- "data/cci/402c_filtering_aggregated_res.rds"
+params$condition_varname <- "Region"
+params$pval_type <- "pval_adj"
+params$condition_oi <- "PT"
+params$pair_y <- "Neuron__Invasive-high OPC/NPC1"
+params$pair_x <- "Neuron__Progenitor_like"
+params$alpha <- 0.05
+
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, readxl, ggplot2, ggrastr, ggtext)
+
+create_dir(params$output_dir)
+label_color <- setNames(c("background", GBMutils::load_color_palette("General_groups")[2:4]), c("black,", "NRXN-NLGN interactions", "Calcium signaling", "Glutamate production/uptake"))
+```
+
+## Prepare & format data
+```{r}
+# Setup for visualization
+options(ggrepel.max.overlaps = Inf)
+
+# Load metadata
+meta <- readRDS(params$meta) %>%
+    select(Sample, !!sym(params$condition_varname)) %>%
+    distinct() %>%
+    remove_rownames()
+
+# Format expression
+avg_exp <- readRDS(params$avg_expr)
+str_(colnames(avg_exp))
+
+column_names <- colnames(avg_exp)
+
+# Remove prefix 'g-' that is added by Seurat
+new_colnames <- str_sub_all(column_names, 2) %>%
+    unlist() %>%
+    # col1 = cell type, col2 = Sample
+    str_split(., "_", simplify = TRUE) %>%
+    apply(., 1, rev) %>%
+    t() %>%
+    data.frame() %>%
+    unite(colnames, X1, X2, sep = ":") %>%
+    pull()
+colnames(avg_exp) <- new_colnames
+
+# Format gene expression matrix
+avg_exp_long <- data.frame(avg_exp, check.names = FALSE) %>%
+    rownames_to_column("gene") %>%
+    # Convert to long-format
+    pivot_longer(names_sep = ":", names_to = c("label", "Sample"), cols = all_of(colnames(avg_exp)), values_to = "avg_expression") %>%
+    # Adding regional info
+    left_join(meta) %>%
+    group_by(!!sym(params$condition_varname), label, gene) %>%
+    summarise(mean = mean(avg_expression)) %>%
+    mutate(Region = factor(!!sym(params$condition_varname), levels = names(GBMutils::load_color_palette("Region")))) %>%
+    ungroup()
+
+exp_df <- avg_exp_long %>%
+    # Taking log-mean
+    mutate(mean = log2(mean + 1)) %>%
+    filter(label %in% c("Neuron", "Progenitor_like", "Invasive-high OPC/NPC1")) %>%
+    pivot_wider(names_from = label, values_from = mean, values_fill = NA) %>%
+    mutate(diff = !!sym("Invasive-high OPC/NPC1") - !!sym("Progenitor_like"))
+
+interactions_of_interest_df <- readRDS(params$interactions) %>%
+    separate(complex_interaction, into = c("ligand_complex", "receptor_complex"), sep = "__", remove = FALSE) %>%
+    filter(
+        # Only keep interactions detected for Neuron - Progenitor-like OR Neuron - Invasive-high OPC/NPC1
+        source_target %in% c(params$pair_x, params$pair_y),
+
+        # Only keep interactions with a (adjusted) Fisher combined p-value < params$alpha
+        !!sym(params$pval_type) < params$alpha,
+        # Keep interactions that are detected in PT region
+        !!sym(params$condition_varname) == params$condition_oi,
+        # Only keep certain interactions
+        # NRXN-NLGN / NRXN-NLGN interactions
+        ((str_detect(ligand_complex, "NRXN") & str_detect(receptor_complex, "NLGN")) |
+            (str_detect(ligand_complex, "NLGN") & str_detect(receptor_complex, "NRXN")) |
+            # Glutamate
+            (str_detect(complex_interaction, "GLS|GRIA|GRIK"))
+        )
+    ) %>%
+    # Remove duplicate interactions
+    distinct(complex_interaction, .keep_all = TRUE) %>%
+    select(ligand_complex, receptor_complex)
+
+# Extract genes from interactions of interest
+genes_oi <- interactions_of_interest_df %>%
+    select(ligand_complex, receptor_complex) %>%
+    unlist() %>%
+    unname() %>%
+    str_split(., "\\:") %>%
+    unlist() %>%
+    unique()
+
+df_region <- exp_df %>%
+    # Only keep the interactions from region PT
+    filter(
+        !!sym(params$condition_varname) == params$condition_oi,
+    ) %>%
+    mutate(
+        # Label genes that are of interest NRXN, NLGN and glumate-related genes
+        is_gene_oi = case_when(
+            gene %in% genes_oi & str_detect(gene, "NRXN|NLGN") ~ "NRXN-NLGN interactions",
+            gene %in% genes_oi & (str_detect(gene, "GLS|GRIA|GRIK")) ~ "Glutamate production/uptake",
+            .default = "background"
+        )
+    )
+```
+## Visualization
+```{r,  fig.width = 15, fig.height = 15}
+p <- ggplot(data = df_region, aes(x = diff, y = Neuron)) +
+    geom_point_rast(size = 2, alpha = .1, color = "black", stroke = NA) +
+    labs(
+        y = paste0("log<sub>2</sub>(mean exp + 1) in Neuron"),
+        x = paste0(paste0("log<sub>2</sub>(mean exp + 1) in ", "Invasive-high OPC/NPC1"), " - ", paste0("log<sub>2</sub>(mean exp + 1) in ", "Progenitor_like")),
+        subtitle = glue("Total number of genes: {nrow(df_region)}")
+    ) +
+    GBMutils::GBM_theme() +
+    theme(aspect.ratio = 1) +
+    # Labeling
+    ggnewscale::new_scale("colour") +
+    scale_color_manual(
+        values = label_color,
+        guide = guide_legend(
+            override.aes = list(size = 7, alpha = 1), title = "Involved in", nrow = 2
+        )
+    ) +
+    geom_point_rast(data = df_region %>% filter(is_gene_oi != "background"), aes(color = is_gene_oi), alpha = 1, show.legend = TRUE, size = 2, stroke = NA) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    ggrepel::geom_label_repel(data = df_region %>% filter(is_gene_oi != "background"), aes(label = gene, color = is_gene_oi), show.legend = FALSE, min.segment.length = 0.1, size = 5) +
+    coord_fixed()
+p
+
+ggsave(
+    plot = p,
+    filename = glue("{params$output_dir}/volcano__{params$condition_oi}_Neuron_x_diff_Progenitor_like__Invasive-high OPC_NPC1__bg_all_genes.pdf"), width = 12, height = 12
+)
+```
+
+## Session Info
+```{r echo = false}
+sessionInfo()
+```

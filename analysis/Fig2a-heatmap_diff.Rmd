@@ -1,0 +1,168 @@
+---
+title: "Notebook to reproduce Figure 2a"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/CCI_CellClass_L2_2_rerun"
+    interactions: "output/CCI_CellClass_L2_2_rerun/402_aggregation_and_filtering/402c_filtering_aggregated_res.rds"
+    condition_varname: "Region"
+    group1: "PT"
+    group2: "TC"
+    remove_autocrine: TRUE
+    pval_type: "pval_adj"
+    alpha: 0.05
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+```{r}
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, ComplexHeatmap)
+
+create_dir(params$output_dir)
+
+# Setup color palettes
+color_group1 <- GBMutils::load_color_palette("Region")[[params$group1]]
+color_group2 <- GBMutils::load_color_palette("Region")[[params$group2]]
+
+# Setup celltype categories/labels
+celltype_levels <- names(GBMutils::load_color_palette("CCI_CellClass_L2_2"))
+malign <- celltype_levels[1:3]
+tme_oi <- c("Myeloid_Inflammatory", "Myeloid_Immunosuppressive", "Neuron")
+tme_other <- setdiff(celltype_levels, c(malign, tme_oi))
+celltype_levels <- c(malign, tme_oi, tme_other)
+label_levels <- c("Tumor", "TME\nof interest", "TME")
+```
+
+## Prepare & format data
+```{r}
+# Load data + formatting
+obj <- readRDS(params$interactions) %>%
+    # Only keep significant interactions based on (ajusted) Fisher' combined p-value
+    filter(!!sym(params$pval_type) < params$alpha) %>%
+    separate(source_target, c("source", "target"), sep = "__", remove = FALSE) %>%
+    # Remove direction by sorting source-target alphabetically
+    rowwise() %>%
+    mutate(source_target_undirected = paste0(sort(c(source, target)), collapse = "__")) %>%
+    # Remove duplicate interactions, when they are found in both directions only keep 1
+    distinct(!!sym(params$condition_varname), source_target_undirected, complex_interaction, .keep_all = FALSE) %>%
+    separate(source_target_undirected, c("source", "target"), sep = "__") %>%
+    arrange(!!sym(params$condition_varname), source, target, .by_group = TRUE) %>%
+    # Count number of interactions per source-target per region
+    group_by(!!sym(params$condition_varname), target, source) %>%
+    summarise(n = n()) %>%
+    ungroup()
+
+# Convert to wide format based on levels in '{params$condition_varname}'
+obj_wide_condition <- obj %>%
+    # Replace missing values with 0
+    pivot_wider(names_from = !!sym(params$condition_varname), values_from = n, values_fill = 0) %>%
+    select(source, target, !!sym(params$group1), !!sym(params$group2)) %>%
+    mutate(diff_n = !!sym(params$group1) - !!sym(params$group2))
+
+# Convert to wide format based on cell type labels with the difference in interactions as values
+obj_diff <- obj_wide_condition %>%
+    select(source, target, diff_n) %>%
+    arrange(target) %>%
+    pivot_wider(names_from = target, values_from = diff_n, values_fill = 0) %>%
+    column_to_rownames("source")
+
+# Convert to matrix
+mat <- data.matrix(obj_diff)
+colnames(mat) <- str_replace_all(colnames(mat), "_", "-")
+rownames(mat) <- str_replace_all(rownames(mat), "_", "-")
+
+
+# Make sure order of rows/columns are the same.
+mat <- mat[
+    intersect(str_replace_all(celltype_levels, "_", "-"), rownames(mat)),
+    intersect(str_replace_all(celltype_levels, "_", "-"), colnames(mat))
+]
+
+# Fill whole matrix (mirror)
+mat <- mat + t(mat)
+mat[lower.tri(mat)] <- 0
+
+if (params$remove_autocrine) {
+    # Remove autocrine interactions (diagonal)
+    diag(mat) <- 0
+}
+
+# Remove fully empty columns/rows
+mat <- mat[, which(colSums(mat) != 0)]
+mat <- mat[which(rowSums(mat) != 0), ]
+
+# Setup heatmap annotation
+label_helper <- function(name, malign, tme_oi) {
+    if (name %in% stringr::str_replace_all(malign, "_", "-")) {
+        return("Tumor")
+    } else if (name %in% stringr::str_replace_all(tme_oi, "_", "-")) {
+        return("TME\nof interest")
+    } else {
+        return("TME")
+    }
+}
+split_label_col <- factor(lapply(colnames(mat), label_helper, malign = malign, tme_oi = tme_oi) %>% unlist(), levels = label_levels)
+split_label_row <- factor(lapply(rownames(mat), label_helper, malign = malign, tme_oi = tme_oi) %>% unlist(), levels = label_levels)
+
+# Determine min/max values for heatmap
+legend_max <- plyr::round_any(max(mat), 25, f = ceiling)
+legend_min <- plyr::round_any(min(mat), 25, f = floor)
+
+# Setup colors
+color_fun <- circlize::colorRamp2(c(legend_min, 0, legend_max), c(color_group2, "white", color_group1))
+```
+
+## Visualization
+```{r,  fig.width = 15, fig.height = 15}
+chosen_cell_func <- get_cell_function(matrix = mat, is_upper_tri = TRUE, add_annot = TRUE)
+
+# Plot Heatmap and save.
+hm <- create_hm(
+    matrix = mat,
+    col = color_fun,
+    name = glue("{params$group1}-{params$group2}\ninteractions"),
+    cell_fun = chosen_cell_func,
+    column_title = "", row_title = "",
+    column_title_rot = 0, cluster_rows = FALSE, cluster_columns = FALSE,
+    cell_height = 10, cell_width = 10,
+    row_split = split_label_row, column_split = split_label_col, heatmap_legend_param = list(
+        at = c(legend_min, legend_max),
+        labels = c(glue("More in {params$group2}"), glue("More in {params$group1}")),
+        legend_height = unit(3, "cm")
+    )
+)
+R.devices::suppressGraphics({
+    save_hm(hm_obj = hm, output_file = glue("{params$output_dir}/heatmap__diff_undirected_w_annot.pdf"))
+})
+
+# Add annotation
+chosen_cell_func <- get_cell_function(matrix = mat, is_upper_tri = TRUE, add_annot = FALSE)
+hm <- create_hm(
+    matrix = mat,
+    col = color_fun,
+    name = glue("{params$group1}-{params$group2}\ninteractions"),
+    cell_fun = chosen_cell_func,
+    column_title = "", row_title = "",
+    column_title_rot = 0, cluster_rows = FALSE, cluster_columns = FALSE,
+    cell_height = 10, cell_width = 10,
+    row_split = split_label_row, column_split = split_label_col,
+    heatmap_legend_param = list(
+        at = c(legend_min, legend_max),
+        labels = c(glue("More in {params$group2}"), glue("More in {params$group1}")),
+        legend_height = unit(3, "cm")
+    )
+)
+
+draw(hm)
+
+R.devices::suppressGraphics({
+    save_hm(hm_obj = hm, output_file = glue("{params$output_dir}/heatmap__diff_undirected.pdf"))
+})
+```
+
+## Session Info
+```{r echo = false}
+sessionInfo()
+```

@@ -1,0 +1,28 @@
+---
+title: "Notebook to reproduce Figure S5c"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/xenium_analysis"
+    stats_res: "data/Xenium/PIMO76-6509-cortex__cell_type__k15nn_stats_res.rds"
+    neighbors_shuffled_df: "data/Xenium/PIMO76-6509-cortex__cell_type__k15nn_shuffled_mean.rds"
+    cell_boundaries: "data/Xenium/cell_boundaries.csv.gz"
+    n_cores: 8
+    meta: "data/Xenium/PIMO76-6509-cortex__meta_annot_w_expr_counts_ROI.rds"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+
+pacman::p_load(glue, data.table, tidyverse, stringr, ggplot2, GaitiLabUtils)
+```
+
+## 
+
+
+
+## Session Info
+```{r, echo = false}
+sessionInfo()
+```
