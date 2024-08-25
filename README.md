@@ -1,9 +1,7 @@
 # Overview
 
-Repository with code to reproduce analyses and figures in TODO 
-
-## Data availability
-Data is available at TODO 
+Repository with code to reproduce analyses and figures in "Glioblastoma cells co-opt epigenetic regulators of normal oligodendrocyte development for brain infiltration"
+ 
 
 ## Abstract
 
@@ -11,4 +9,4 @@ Glioblastoma (GBM) is a highly aggressive brain tumor known for its ability to i
 
 ## Contact
 
-Load contact for data and materials availability: federico.gaiti@uhn.ca
+Lead contact for data and materials availability: federico.gaiti@uhn.ca
