@@ -81,5 +81,5 @@ plot_cor_TF_and_inv_per_cell <- function(curr_seurat_data, tf_name, chromVar_nam
 
 # Plot for each TF
 for (tf_name in TFs_to_plot){
-  plot_cor_TF_and_inv_per_cell(curr_seurat_data, tf_name, "/cluster/projects/gaitigroup/Users/Yiyan/GBM_10x/misc/data/chromVar_names.csv", plot_dir)
+  plot_cor_TF_and_inv_per_cell(curr_seurat_data, tf_name, "misc/data/chromVar_names.csv", plot_dir)
 }
