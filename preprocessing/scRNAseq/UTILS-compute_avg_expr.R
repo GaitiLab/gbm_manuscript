@@ -19,19 +19,11 @@ if (!interactive()) {
     parser$add_argument("--slot", type = "character", help = "Layer (v5)/slot (v4) to use", default = "counts")
     parser$add_argument("--groupbyvar", type = "character", help = "group_by for AverageExpression")
     parser$add_argument("--is_seurat_v4", type = "numeric", help = "Is Seurat v4 version (default = 1)", default = TRUE)
-    args <- parser$parse_args()
-} else {
-    # Provide arguments here for local runs
-    args <- list()
-    args$log_level <- 5
-    args$output_dir <- glue("{here::here()}/output/")
-    args$input_file <- "output/CCI_CellClass_L2_2_rerun/100_preprocessing/seurat/6234_2895153_A.rds"
-    args$groupbyvar <- "Sample,CCI_CellClass_L2_2"
-    args$is_seurat_v4 <- TRUE
-    args$slot <- "data"
-    args$assay <- "RNA"
-}
+    parser$add_argument("--prefix", type = "character", help = "Prefix for saving file", default = "")
+    parser$add_argument("--apply_is_confident_filter", type = "numeric", help = "Filter for `Confident_Annotation` with gbm_regional_study.rds (only scRNAseq)", default = FALSE)
 
+    args <- parser$parse_args()
+}
 # Set up logging
 logr <- init_logging(log_level = args$log_level)
 log_info(ifelse(interactive(),
@@ -48,24 +40,44 @@ if (args$is_seurat_v4) {
     options(Seurat.object.assay.version = "v4")
 }
 log_info("Load seurat object...")
-obj <- readRDS(args$input_file)
+seurat_obj <- readRDS(args$input_file)
+DefaultAssay(seurat_obj) <- args$assay
 
 groupbyvar <- str_split(args$groupbyvar, ",") %>% unlist()
 
-log_info("Compute Average Expression...")
-# GBM - For scatterplot
-# Only keep `Confident_Annotation` cells
-avg_expr <- AverageExpression(subset(obj, subset = Confident_Annotation),
-    assays = args$assay,
-    group.by = groupbyvar,
-    slot = args$slot
-)[[args$assay]]
+if (args$apply_is_confident_filter) {
+    # Only keep confidently annotated cells
+    seurat_obj <- subset(seurat_obj, subset = Confident_Annotation)
+}
+
+if (args$is_seurat_v4) {
+    log_info("Compute Average Expression based on Seurat v4...")
+
+    avg_expr <- AverageExpression(seurat_obj,
+        assays = args$assay,
+        group.by = groupbyvar,
+        slot = args$slot
+    )[[args$assay]]
+} else {
+    log_info("Compute Average Expression based on Seurat v5...")
+    if (args$assay == "RNA") {
+        seurat_obj <- NormalizeData(seurat_obj)
+        seurat_obj <- ScaleData(seurat_obj)
+    }
+
+    avg_expr <- AverageExpression(seurat_obj, assays = args$assay, layer = args$slot, group.by = args$groupbyvar)[[args$assay]]
+    # %>%
+    # data.frame() %>%
+    # rownames_to_column("gene")
+}
 
 log_info("Save results...")
 groupbyvar_str <- paste0(groupbyvar, collapse = "__")
 
+prefix <- ifelse(args$prefix == "", "", paste0(args$prefix, "__"))
+
 saveRDS(avg_expr,
-    file = glue("{args$output_dir}/mean_exp_by_{groupbyvar_str}_{args$assay}_{args$slot}.rds")
+    file = glue("{args$output_dir}/{prefix}mean_exp_by_{groupbyvar_str}_{args$assay}_{args$slot}.rds")
 )
 
-log_info("COMPLETED!")
+log_info("Finished!")

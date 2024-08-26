@@ -60,7 +60,11 @@ slurm_out
 
 output/
 data/
-
+misc/
 
 analysis/run_notebooks.R
+analysis/run_notebooks.sh
+TEST-*
 tmp.txt
+
+000_ARCHIVED

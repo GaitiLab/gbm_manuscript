@@ -1,0 +1,129 @@
+---
+title: "Notebook to reproduce Figure S5g"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/xenium_analysis"
+    sample_id: "6509_A"
+    interactions: "data/cci_scRNAseq/processed/cellpair_x_interaction.txt"
+    input_dir: "data/Xenium"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r, config}
+pacman::p_load(glue, data.table, tidyverse, stringr, ggplot2, GaitiLabUtils)
+
+GaitiLabUtils::create_dir(params$output_dir)
+plt_prefix <- glue("{params$output_dir}/{params$sample_id}__celltype_x_gene_pair__k15nn")
+```
+
+## Prepare data
+```{r prep-data}
+# Load interactions that were used for co-localization assessment
+interactions <- read.table(params$interactions) %>% pull(V1)
+
+# Format results
+stats_res <- do.call(rbind, lapply(interactions, function(interaction_oi, sample_id, input_dir) {
+    interaction_split <- str_split(interaction_oi, "_x_", simplify = TRUE) %>% unlist()
+    source_target_oi <- str_split(interaction_split[1], "__", simplify = TRUE) %>% unlist()
+    gene_pair <- str_split(interaction_split[2], "__", simplify = TRUE) %>% unlist()
+
+    source_oi <- source_target_oi[1]
+    target_oi <- source_target_oi[2]
+    ligand_oi <- gene_pair[1]
+    receptor_oi <- gene_pair[2]
+
+    stats_res_filepath <- glue("{input_dir}/{sample_id}__{interaction_oi}__k15nn_stats_res.rds")
+
+    # Load computed statistics
+    stats <- readRDS(stats_res_filepath) %>%
+        rowwise() %>%
+        # format/relabel ligand == receptor
+        separate(source_target, into = c("source_ligand", "target_receptor"), remove = FALSE, sep = "__") %>%
+        separate(source_ligand, into = c("source", "ligand"), remove = FALSE, sep = ":") %>%
+        separate(target_receptor, into = c("target", "receptor"), remove = FALSE, sep = ":") %>%
+        filter(
+            str_detect(source, source_oi) | source == "Other", str_detect(target, target_oi) | target == "Other",
+            !(source == "Other" & target == "Other"),
+            # detect ligand/receptor
+            str_detect(ligand, ligand_oi) | is.na(ligand), str_detect(receptor, receptor_oi) | is.na(receptor)
+        ) %>%
+        mutate(
+            mean_diff = mean_obs - mean_null,
+            interaction = interaction_oi
+        ) %>%
+        # Ungroup
+        data.frame()
+    return(stats)
+}, input_dir = params$input_dir, sample_id = params$sample_id)) %>%
+    separate(interaction, into = c("ref_celltype_pair", "ref_gene_pair"), sep = "_x_", remove = FALSE) %>%
+    mutate(
+        neg_log10_padj = -log10(p.adjust(pval, method = "bonferroni")),
+        source_target = str_replace_all(source_target, "__", " - "),
+        ref_gene_pair = str_replace_all(ref_gene_pair, "__", "-"),
+        ligand = ifelse(!is.na(ligand), "ligand", NA),
+        receptor = ifelse(!is.na(receptor), "receptor", NA),
+        source_ligand = ifelse(is.na(ligand), source, paste0(source, ":", ligand)),
+        target_receptor = ifelse(is.na(receptor), target, paste0(target, ":", receptor))
+    ) %>%
+    unite(source_target, source_ligand, target_receptor, sep = " - ")
+```
+
+## Visualization
+```{r, vis, fig.width = 15, fig.height = 10}
+# ---- All possible pair split by interaction ----
+max_diff <- plyr::round_any(max(stats_res$mean_diff), .5, f = ceiling)
+min_diff <- plyr::round_any(min(stats_res$mean_diff), .5, f = floor)
+max_abs <- max(abs(c(max_diff, min_diff)))
+color_labels <- GBMutils::load_color_palette("Divergent_1")
+
+facet_labels <- stats_res %>% pull(ref_gene_pair)
+names(facet_labels) <- stats_res %>% pull(interaction)
+
+stats_res %>% pull(neg_log10_padj)
+
+p <- ggplot(data = stats_res, aes(
+    x = ref_gene_pair, y = reorder(source_target, mean_diff),
+    size = neg_log10_padj, fill = mean_diff
+)) +
+    geom_point(pch = 21, color = "black") +
+    GBMutils::GBM_theme() +
+    scale_fill_gradient2(
+        mid = color_labels[["mid"]], midpoint = 0, low = color_labels[["low"]], high = color_labels[["high"]],
+        breaks = scales::pretty_breaks(),
+        n.breaks = 3,
+        limits = c(-max_abs, max_abs)
+    ) +
+    scale_x_discrete() +
+    guides(
+        fill = guide_colorbar(
+            title.position = "top",
+            title.hjust = 0.5,
+            title = expression(mean[observed] - mean[null]),
+            barheight = unit(0.9, "lines")
+        ),
+        size = guide_legend(
+            title.position = "top",
+            title = expression(-log[10](p[adj])),
+            title.hjust = 0.5, label.position = "bottom"
+        )
+    ) +
+    theme(axis.text.x = element_text(size = 15, angle = 90, hjust = 0.95, vjust = 0.2), legend.key.width = unit(2, "lines"), legend.box = "vertical") +
+    labs(
+        y = "Pair", x = "Interaction"
+    ) +
+    # Ensure that every dot is clearly visible
+    scale_size(range = c(3, 8))
+p
+ggsave(plot = p, filename = glue("{plt_prefix}_dotplot_simplified_w_mean_diff.pdf"), width = 15, height = 10)
+```
+
+
+## Session Info
+```{r, echo = FALSE}
+sessionInfo()
+```

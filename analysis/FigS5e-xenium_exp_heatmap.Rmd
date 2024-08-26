@@ -1,0 +1,217 @@
+---
+title: "Notebook to reproduce Figure S5e"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/xenium_analysis"
+    sample_id: "6509_A"
+    DE_markers_xenium: "data/Xenium/processed/6509_A__DE_markers.rds"
+    meta: "data/Xenium/processed/6509_A__BANKSY_metadata.rds"
+    avg_exp: "data/Xenium/processed/6509_A__BANKSY__mean_exp_by_BANKSY_snn_res.0.5_SCT_scale.data.rds"
+    cluster_name: "BANKSY_snn_res.0.5"
+    top_n: 15
+    DE_markers_scRNAseq: "misc/cci_l4.csv"
+    xenium_gene_panel: "misc/gbm_xenium_414g_version1_aug2023.xlsx"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r, config }
+pacman::p_load(glue, data.table, tidyverse, stringr, ggplot2, GaitiLabUtils, readxl, ComplexHeatmap, circlize)
+
+# Setup colors
+curated_colors <- GBMutils::load_color_palette("CCI_CellClass_L2_2")
+names(curated_colors)[names(curated_colors) == "Endothelial"] <- "BV"
+names(curated_colors)[names(curated_colors) == "Myeloid_Immunosuppressive"] <- "Myeloid"
+
+# Setup ticks for colorbar for heatmap
+legend_min <- -2
+legend_mid <- 0
+legend_max <- 2
+
+# Settings
+legend_title <- "Mean\nscaled expression"
+column_title_rot <- 0
+column_title <- "Gene"
+cell_size <- ifelse(!is.null(params$top_n), 5, .5)
+
+# Setup colors
+col_fun <- circlize::colorRamp2(
+    # Values
+    c(legend_min, legend_mid, legend_max),
+    # Colors
+    GBMutils::load_color_palette("Divergent_1")
+)
+
+lgd <- Legend(
+    col_fun = col_fun,
+    title = "Mean scaled\nexpression",
+    direction = "horizontal"
+)
+lgd_list <- list(lgd)
+
+GaitiLabUtils::create_dir(params$output_dir)
+```
+
+## Prepare cell type marker from scRNAseq 
+```{r prep-scrnaseq-markers}
+# Load gene panel Xenium...")
+xenium_genes <- read_excel(
+    params$xenium_gene_panel,
+    skip = 1
+) %>% pull(`Gene(10x)`)
+
+# Load cell type markers from scRNAseq...")
+DE_markers_scRNAseq <- read.csv(params$DE_markers_scRNAseq) %>%
+    mutate(cluster = case_when(
+        # Merge Myeloid-immuno and Myeloid-inflam
+        str_detect(cluster, "Myeloid") ~ "Myeloid",
+        # Merging pericyte and endo
+        str_detect(cluster, "Pericyte|Endothelial") ~ "BV",
+        # Relabel neuronal OPC-like as PL-like
+        str_detect(cluster, "Neuronal OPC-like") ~ "Progenitor_like",
+        .default = cluster
+    )) %>%
+    filter(
+        # Filter based on significance + logfold
+        p_val_adj < 0.05, avg_log2FC > 1.5,
+        cluster != "NoSignals",
+        # Only keep genes that are in the gene panel
+        gene %in% xenium_genes
+    ) %>%
+    mutate(p_val_adj = ifelse(p_val_adj == 0, .Machine$double.xmin, p_val_adj)) %>%
+    # Assign 1 label for each gene
+    mutate(score = -log10(p_val_adj) * avg_log2FC) %>%
+    group_by(gene) %>%
+    # Assign each gene to a single cell-type (highest score)
+    slice_max(order_by = score, n = 1) %>%
+    # remove 'group-by'
+    data.frame() %>%
+    dplyr::select(gene, cluster, p_val_adj, avg_log2FC, score) %>%
+    rename(label = cluster)
+```
+
+```{r, vis, fig.width = 30, fig.height = 15}
+# Load average expression
+avg_exp <- readRDS(params$avg_exp) %>%
+    data.frame() %>%
+    tibble::rownames_to_column("gene")
+
+# Load metadata
+meta <- readRDS(params$meta)
+
+# Use the actual clusters, not the annotated clusters, i.e. labels for BANKSY
+varname_banksy <- colnames(meta)[str_detect(colnames(meta), "BANKSY") & str_detect(colnames(meta), "snn_res")]
+
+# Load cell type markers from scRNAseq
+DE_markers_scRNAseq <- DE_markers_scRNAseq %>% dplyr::select(gene, label)
+
+# Load cell type markers from Xenium & annotate genes based on scRNAseq markers
+DE_markers_xenium <- readRDS(params$DE_markers_xenium) %>%
+    remove_rownames() %>%
+    # Filtering on log2fc and pval significant
+    filter(avg_log2FC > 1.5, p_val_adj < 0.05) %>%
+    # Label Xenium DE markers based on scRNAseq markers
+    left_join(DE_markers_scRNAseq, by = "gene") %>%
+    # Remove genes that don't have a cell type label
+    filter(!is.na(label)) %>%
+    mutate(p_val_adj = ifelse(p_val_adj == 0, .Machine$double.xmin, p_val_adj)) %>%
+    # Assign 1 label for each gene
+    mutate(score = -log10(p_val_adj) * avg_log2FC) %>%
+    group_by(gene) %>%
+    # Assign each gene to a single cell-type (highest score)
+    slice_max(order_by = score, n = 1) %>%
+    # remove 'group-by'
+    data.frame() %>%
+    dplyr::select(gene, cluster, label, p_val_adj, avg_log2FC, score)
+
+# Only select top-n genes
+DE_markers_xenium <- DE_markers_xenium %>%
+    group_by(label) %>%
+    arrange(desc(score), .by_group = TRUE) %>%
+    slice_max(order_by = score, n = params$top_n) %>%
+    data.frame()
+
+# Number of markers per cell-type
+DE_markers_xenium %>%
+    group_by(label) %>%
+    count() %>%
+    print()
+
+# Add gene expression for filtered cell type markers
+df_combi <- merge(DE_markers_xenium %>% dplyr::select(gene, label, cluster), avg_exp, by = "gene") %>% arrange(label)
+
+# Convert to matrix
+mat <- df_combi %>%
+    dplyr::select(-gene, -cluster, -label) %>%
+    data.matrix() %>%
+    t()
+colnames(mat) <- df_combi %>% pull(gene)
+
+# Setup gene annotation categories (labels from annotation file)
+top_annot <- HeatmapAnnotation(
+    Label = df_combi %>% pull(label),
+    col = list(
+        Label = curated_colors
+    ),
+    annotation_legend_param = list(
+        Label = list(
+            direction = ifelse(!is.null(params$top_n), "horizontal", "vertical"),
+            ncol = df_combi %>% pull(label) %>% unique() %>% length(),
+            nrow = 2
+        )
+    )
+)
+
+# Create heatmap
+hm <- create_hm(
+    matrix = mat,
+    col = col_fun,
+    column_split = df_combi %>% pull(label),
+    show_column_names = !is.null(params$top_n),
+    column_title_rot = 30,
+    # Titles
+    name = legend_title,
+    row_title = "Cluster",
+
+    # Size of cells (use square)
+    cell_width = cell_size,
+    cell_height = 5,
+
+    # Font sizes
+    row_names_gp = gpar(fontsize = 12),
+    column_names_gp = gpar(fontsize = 12),
+    column_title_gp = gpar(fontsize = 12),
+
+    # Dendrograms
+    show_row_dend = TRUE,
+    show_column_dend = FALSE,
+
+    # Clustering
+    cluster_columns = TRUE,
+    show_heatmap_legend = FALSE,
+
+    # Annotations
+    top_annotation = top_annot
+)
+
+# Save heatmap as pdf
+draw(hm)
+R.devices::suppressGraphics({
+    save_hm(
+        hm_obj = hm,
+        output_file = glue("{params$output_dir}/{params$sample_id}_DE_xenium_n{params$top_n}.pdf"),
+        heatmap_legend_side = "bottom",
+        annotation_legend_side = "bottom",
+        merge_legend = TRUE
+    )
+})
+```
+
+## Session Info
+```{r, echo = FALSE}
+sessionInfo()
+```

@@ -1,5 +1,5 @@
 ---
-title: "Notebook to reproduce Figure XXXX"
+title: "Notebook to reproduce Figure S5c (right)"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Joan Kant"
 params:
@@ -9,7 +9,7 @@ params:
     sender: "Differentiated_like"
     receiver: "Myeloid_Immunosuppressive"
     region_oi: "TC"
-    output_dir: "output"
+    output_dir: "output/cci_scRNAseq"
 output: html_document
 ---
 
@@ -20,20 +20,12 @@ options(ggrepel.max.overlaps = Inf)
 
 pacman::p_load(glue, data.table, tidyverse, stringr, ggplot2, GaitiLabUtils, readxl, ggplot2, ggrastr, ggtext)
 
-create_dir(params$output_dir)
-
-# params <- list()
-# params$interactions <- "data/cci_scRNAseq/402c_filtering_aggregated_res.rds"
-# params$is_directed <- TRUE
-# params$condition_varname <- "Region"
-# params$sender <- "Differentiated_like"
-# params$receiver <- "Myeloid_Immunosuppressive"
-# params$region_oi <- "TC"
+GaitiLabUtils::create_dir(params$output_dir)
 ```
 
 ## Prepare & format data
 
-```{r }
+```{r prep-data}
 source_target_oi <- paste0(params$sender, "__", params$receiver)
 source_target_oi_formatted <- str_replace_all(source_target_oi, c("/" = "_", " " = "_"))
 
@@ -57,7 +49,7 @@ detected_interactions <- readRDS(params$interactions) %>%
 ```
 
 ## Visualize
-```{r, fig.width=10, fig.height=10}
+```{r, vis, fig.width=10, fig.height=10}
 p <- ggplot(
     data = detected_interactions,
     aes(x = order_id, y = log10p)
@@ -88,11 +80,11 @@ p <- ggplot(
 
 ggsave(
     plot = p,
-    filename = glue("{params$output_dir}/rank_plot_{source_target_oi_formatted}_in_{params$region_oi}.pdf"), height = 15, width = 15
+    filename = glue("{params$output_dir}/rank_plot_{source_target_oi_formatted}_in_{params$region_oi}.pdf"), height = 10, width = 10
 )
 ```
 
 ## Session Info
-```{r, echo = FALSE}
+```{r,session-info, echo = FALSE}
 sessionInfo()
 ```
