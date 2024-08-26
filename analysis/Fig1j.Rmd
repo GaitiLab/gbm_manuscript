@@ -1,0 +1,82 @@
+---
+title: "Notebook to reproduce Figure 1j"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Benson Wu"
+params:
+  output_dir: "output"
+  plot_dir: "output/plots"
+  gene_set: "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/c5.go.v2023.2.Hs.symbols.gmt"
+  de_results: "de_results.csv"
+output: html_document
+---
+
+
+```{r, rmarkdown-setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
+```
+
+## Prepare data
+```{r, prep-data}
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
+
+# GSEA for DEGs
+GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
+
+pacman::p_load(
+  data.table,
+  ggplot2,
+  stringr,
+  dplyr,
+  fgsea,
+)
+
+# GSEA
+curr_gene_list <- read.csv(params$de_results) # import de results from fig 1i
+
+rownames(curr_gene_list) <- curr_gene_list$gene
+
+gene_set <- gmtPathways(params$gene_set)
+
+ranked_genes_response <- curr_gene_list %>%
+  mutate(rank = log2FoldChange) %>%
+  filter(rank != Inf) %>%
+  filter(rank != -Inf) %>%
+  arrange(-rank)
+
+ranked_genes_response$ranking <- rank(-ranked_genes_response$rank, ties.method = "first")
+ggplot(ranked_genes_response, aes(x = ranking, y = rank)) +
+  geom_bar(stat = "identity") +
+  ylab("Ranked List Metric (log2FoldChange)") +
+  xlab("Rank in Ordered Dataset")
+
+write.csv(ranked_genes_response, file.path(params$output_dir, "ranked_genes_response.csv"))
+response_level_stats <- ranked_genes_response$rank
+names(response_level_stats) <- rownames(ranked_genes_response)
+
+# Run gsea and filter the pathways with a p-val less than 0.05
+fgseaRes_ctrl_multilevel <- fgseaMultilevel(
+  pathways = gene_set,
+  stats = response_level_stats,
+  minSize = 10,
+  maxSize = 2000,
+  nPermSimple = 10000
+) %>%
+  filter(padj < 0.5) %>%
+  arrange(-abs(NES))
+
+# Format for Cytoscape EnrichmentMap
+current_ranks <- ranked_genes_response$ranking
+names(current_ranks) <- ranked_genes_response$gene
+
+write_patient_fgsea_results(
+  fgsea_results = fgseaRes_ctrl_multilevel,
+  output_dir = params$plot_dir, file_header = "opcnpc_pt_vs_tum_C5_GO", ranks = current_ranks
+)
+```
+
+## Session Info
+```{r, session-info, echo = FALSE}
+sessionInfo()
+```
+

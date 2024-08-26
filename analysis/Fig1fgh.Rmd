@@ -1,0 +1,217 @@
+---
+title: "Notebook to reproduce Figure 1f-h"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Benson Wu"
+params:
+  output_dir: "output"
+  plot_dir: "output/plots"
+  path_to_seurat_object: ""
+  multiome_factors: "/multiome_metacells.spectra.k_11.dt_0_5.consensus.txt"
+  parse_factors: "/parse_metacells.spectra.k_10.dt_0_5.consensus.txt"
+  metacell_metadata: "/metacell_metadata.csv"
+output: html_document
+---
+
+
+```{r, rmarkdown-setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
+```
+
+```{r, setup}
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
+
+pacman::p_load(
+  data.table,
+  patchwork,
+  ggplot2,
+  dplyr,
+  ComplexHeatmap,
+  grid,
+  colorRamp2,
+  dendsort,
+  lsa,
+  tibble,
+  purrr,
+  GBMutils
+)
+
+# Creating directories needed for outputs
+GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
+```
+```{r, fig-1f, fig.width = 10, fig.height = 10}
+# ---------------------------------------------------------------------------- #
+#                                  Figure f                                    #
+# ---------------------------------------------------------------------------- #
+
+# consensus by platform
+multiome_factors <- read.table(params$multiome_factors) # path to cNMF output for multiome
+
+multiome_geps <- lapply(seq(1, length(rownames(multiome_factors))), function(gep_num) {
+  gep <- as.vector(multiome_factors[gep_num, ])
+})
+
+names(multiome_geps) <- paste0("MultiomeFactor", seq(1, length(multiome_geps)))
+
+parse_factors <- read.table(params$parse_factors) # path to cNMF output for evercode
+
+parse_geps <- lapply(seq(1, length(rownames(parse_factors))), function(gep_num) {
+  gep <- as.vector(parse_factors[gep_num, ])
+})
+
+names(parse_geps) <- paste0("ParseFactor", seq(1, length(parse_geps)))
+
+filtered_geps <- list()
+for (i in seq_along(parse_geps)) {
+  for (j in seq_along(multiome_geps)) {
+    parse_gep <- parse_geps[[i]]
+    multiome_gep <- multiome_geps[[j]]
+    if (cosine(as.numeric(parse_gep), as.numeric(multiome_gep)) >= 0.6) { # Filter by greater than or equal to cosine similarity of 0.6
+      filtered_geps[[names(parse_geps)[i]]] <- parse_geps[[i]]
+      filtered_geps[[names(multiome_geps)[j]]] <- multiome_geps[[j]]
+    }
+  }
+}
+geps <- filtered_geps
+
+
+sim_mtx <- matrix(
+  nrow = length(geps), ncol = length(geps),
+  dimnames = list(names(geps), names(geps))
+)
+
+# Compute the cosine similarity index for each pair of GEPs
+for (i in seq_along(geps)) {
+  for (j in seq_along(geps)) {
+    v_i <- geps[[i]]
+    v_j <- geps[[j]]
+    sim_mtx[i, j] <- cosine(as.numeric(v_i), as.numeric(v_j))
+  }
+}
+
+clustering <- dendsort(hclust(dist(sim_mtx)), type = "average")
+clusters <- cutree(clustering, k = 5)
+
+similarity_colors <- colorRamp2(c(0.5, 0.6, 0.7), c("white", "#C0DAD7", "#87B5B1"))
+
+# Platform annotation
+stack <- stack(clusters)
+stack$Platform <- case_when(
+  grepl("Parse", stack$ind) ~ "ParseBio",
+  grepl("Multiome", stack$ind) ~ "Multiome"
+)
+platform_colours <- c("#5773CCFF", "#FFB900FF")
+platform_colours <- c("#002A32", "#C4A29E")
+names(platform_colours) <- unique(stack$Platform)
+
+annotation_top <- HeatmapAnnotation(
+  `Platform` = stack$Platform[match(colnames(sim_mtx), stack$ind)],
+  col = list(`Platform` = platform_colours),
+  show_annotation_name = c(TRUE),
+  annotation_height = unit(0.5, "cm"),
+  show_legend = c(TRUE),
+  gp = gpar(fontsize = 1)
+)
+
+pdf(file = file(params$plot_dir, "geps.pdf"), width = 10, height = 10)
+Heatmap(sim_mtx,
+  show_row_names = FALSE, show_column_names = FALSE,
+  height = nrow(sim_mtx) * unit(2, "cm"),
+  width = ncol(sim_mtx) * unit(2, "cm"),
+  col = similarity_colors,
+  name = "Factor-Factor Similarity",
+  column_title = "", row_title = "",
+  cluster_rows = clustering,
+  cluster_columns = clustering,
+  top_annotation = annotation_top,
+  show_row_dend = TRUE,
+  show_column_dend = TRUE
+)
+decorate_heatmap_body("Factor-Factor Similarity", {
+  grid.rect(gp = gpar(col = "black", lwd = 2))
+})
+dev.off()
+
+gep_clusters <- split(names(geps), clusters)
+consensus_mps <- lapply(seq(1, length(gep_clusters)), function(i) {
+  cluster <- gep_clusters[[i]]
+  factors <- geps[cluster]
+  genes <- names(factors[[1]])
+  consensus <- map(factors, ~ as.numeric(as.character(.))) %>%
+    reduce(`+`) %>%
+    `/`(length(factors))
+  names(consensus) <- genes
+  return(consensus)
+})
+
+consensus_mps <- as.data.frame(consensus_mps)
+colnames(consensus_mps) <- paste0("Factor", seq(length(colnames(consensus_mps)), 1)) # To match order that consensus factors appear in factor-factor heatmap, naming order is reversed
+
+# write
+write.csv(consensus_mps, file.path(params$output_dir, "consensus_mps.csv"))
+
+# top 100 markers
+
+markers <- sapply(colnames(consensus_mps), function(factor) {
+  print(factor)
+  curr_mp <- consensus_mps %>%
+    select(factor) %>%
+    arrange(-!!sym(factor))
+  return(rownames(curr_mp)[1:100])
+})
+
+write.csv(markers, file.path(params$output_dir, "consensus_mps_markers.csv"))
+```
+
+```{r, fig.width = 10, fig.height=10}
+metadata <- read.csv(params$metacell_metadata, row.names = 1) # path to metacell metadata
+metadata$Region <- factor(metadata$Region, levels = c("PT", "TE", "TC"))
+
+df <- metadata
+df$Region <- factor(df$Region, levels = c("PT", "TE", "TC"))
+df <- df %>% filter(CellClass_L3 %in% c("Malignant_OPC", "Malignant_NPC1"))
+p <- ggplot(df, aes(x = Region, y = Factor4)) +
+  geom_boxplot(aes(fill = Region), alpha = 0.9) +
+  scale_fill_manual(values = GBMutils::load_color_palette("Region")) +
+  GBM_theme() +
+  ylab("Factor activation") +
+  ggtitle("Activation of Factor 4 (Neuronal) in OPC/NPC1-like metacells") +
+  GaitiLabUtils::geom_signif_lmm(
+    data_df = df,
+    response = "Factor4",
+    condition = "Region",
+    latent_vars = c("Patient"),
+    comparisons = list(c("PT", "TE"), c("TE", "TC"), c("PT", "TC")),
+    step_increase = c(0, 0.1, 0.1)
+  )
+ggsave(filename = "OPC_NPC1_ONLY_Factor_4.pdf", path = params$plot_dir, height = 10, width = 10)
+p
+```
+
+```{r, fig.width = 10, fig.height=10}
+df <- metadata
+df$Region <- factor(df$Region, levels = c("PT", "TE", "TC"))
+df <- df %>% filter(CellClass_L3 %in% c("Malignant_OPC", "Malignant_NPC1"))
+p <- ggplot(df, aes(x = Region, y = Factor5)) +
+  geom_boxplot(aes(fill = Region), alpha = 0.9) +
+  scale_fill_manual(values = GBMutils::load_color_palette("Region")) +
+  GBM_theme() +
+  ylab("Factor activation") +
+  ggtitle("Activation of Factor 5 (Hypoxia) in OPC/NPC1-like metacells") +
+  GaitiLabUtils::geom_signif_lmm(
+    data_df = df,
+    response = "Factor5",
+    condition = "Region",
+    latent_vars = c("Patient"),
+    comparisons = list(c("PT", "TE"), c("TE", "TC"), c("PT", "TC")),
+    step_increase = c(0, 0.1, 0.1)
+  )
+ggsave(filename = "OPC_NPC1_ONLY_Factor_5.pdf", path = params$plot_dir, height = 10, width = 10)
+p
+```
+
+## Session Info
+```{r, session-info, echo = FALSE}
+sessionInfo()
+```
+
