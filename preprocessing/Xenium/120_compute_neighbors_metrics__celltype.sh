@@ -30,15 +30,6 @@ n_cores=8
 job_min=1
 job_max=400
 
-
-# TESTING 
-iter=10
-n_cores=2
-
-# Number of permutations/N x shuffling
-job_min=1
-job_max=3
-
 echo $job_max
 
 

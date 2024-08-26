@@ -25,10 +25,6 @@ interactions="${PWD}/data/Xenium/processed/cellpair_x_interaction.txt"
 n_interactions=$(wc -l < "${interactions}")
 n_iter=400
 
-# TODO remove later
-n_interactions=2
-n_iter=3
-
 job_max=${n_interactions}
 
 sbatch <<EOF

@@ -34,15 +34,6 @@ job_max=400
 start_interaction=1
 n_interactions=$(wc -l < "${interactions}")
 
-# TODO TEMPORARY, just for testing
-n_interactions=2
-iter=3
-n_cores=2
-
-# Number of permutations/N x shuffling
-job_min=1
-job_max=3
-
 for ((x=${start_interaction}; x<=${n_interactions}; x++))
 do
 # Gene-pairs
