@@ -11,7 +11,6 @@ pacman::p_load(data.table,
                tidyr,
                tibble,
                Seurat,
-               log4r,
                DESeq2,
                SingleCellExperiment,
                apeglm,
@@ -27,25 +26,7 @@ if(!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 plot_dir <- paste0(output_dir, "/path_to_output_directory")
 if(!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
-# ----------------------------- Setting up logger ---------------------------- #
-log.file <- paste0(args$output, "/log.txt")
-console.appender <- console_appender(layout = default_log_layout())
-file.appender <- file_appender(log.file, append = TRUE, 
-                               layout = default_log_layout())
-logr <- log4r::logger(threshold = 1, 
-                      appenders = list(console.appender, file.appender))
-
-object.appender <- file_appender(log.file, append = TRUE, 
-                                 layout = bare_log_layout())
-obj.logr <- log4r::logger(threshold = 1,
-                          appenders = list(object.appender))
-
-log_info <- function(...) {
-  log4r::info(logr, paste0(...))
-}
-
 # Load object
-log_info("Loading Seurat object")
 seurat_object <- readRDS(path_to_seurat_object)
 
 # Prepare groups for comparison
@@ -55,7 +36,6 @@ seurat_object <- subset(seurat_object, subset = Patient %in% c("6237", "6245", "
 seurat_object <- subset(seurat_object, subset = CellClass_L3 %in% c("Malignant_OPC", "Malignant_NPC1")) # Subset for cell types of interest
 
 # Convert to SingleCellExperiment
-log_info("Converting to SingleCellExperiment")
 counts <- seurat_object@assays$RNA@counts
 
 metadata <- seurat_object[[]] 
@@ -63,14 +43,12 @@ sce <- SingleCellExperiment(assays = list(counts = counts),
                             colData = metadata)
 
 # Aggregate counts 
-log_info("Aggregating counts by group of interest")
 groups <- colData(sce)[, c("Sample")] # Group single cell data by sample to perform pseudobulking
 aggr_counts <- aggregate.Matrix(t(counts(sce)),
                                 groupings = groups, fun = "sum")
 aggr_counts <- t(aggr_counts)
 
 # Prepare metadata
-log_info("Preparing metadata")
 metadata <- colData(sce) %>% 
   as.data.frame() %>% 
   select(c("Sample", "Patient", "Region")) 
@@ -99,12 +77,10 @@ df$Patient <- factor(df$Patient, levels = unique(df$Patient))
 df$Region <- factor(df$Region, levels = unique(df$Region))
 
 # Create DESeq2 object
-log_info("Creating DESeq2 object")
 deseq <- DESeqDataSetFromMatrix(aggr_counts,
                                 colData = df,
                                 design = ~ Patient + Region)
 
-log_info("Filtering low count genes")
 keep <- rowSums(counts(deseq) >= 5) >= 6 # Set to min(#sample in group 1, #sample in group 2). 
 deseq <- deseq[keep, ]
 
@@ -112,7 +88,6 @@ genes_used <- rownames(deseq)
 genes_used <- data.frame(gene = genes_used)
 write.csv(genes_used, file.path(plot_dir, "genes_used.csv"))
 
-log_info("Running DESeq2")
 # Run DE analysis
 deseq <- DESeq(deseq)
 
