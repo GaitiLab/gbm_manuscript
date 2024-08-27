@@ -12,6 +12,7 @@ pacman::p_load(data.table,
                scales,
                here,
                leiden,
+               reticulate,
                igraph,
                tibble,
                GBMutils)
