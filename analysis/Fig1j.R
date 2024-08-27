@@ -58,6 +58,7 @@ filter(padj < 0.5) %>% arrange(-abs(NES))
 current_ranks <- ranked_genes_response$ranking
 names(current_ranks) <- ranked_genes_response$gene
 
+# function borrowed from Ruth Isserlin from Bader lab 
 write_patient_fgsea_results<- function(current_fgsea_results, current_results_dir, 
                                        file_header){
       
