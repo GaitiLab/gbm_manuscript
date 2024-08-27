@@ -18,9 +18,11 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 ```
 
 ```{r, setup}
-pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
-
 pacman::p_load(
+  GaitiLabUtils,
+  GBMutils,
+  tidyverse,
+  stringr,
   data.table,
   patchwork,
   ggplot2,

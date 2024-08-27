@@ -17,10 +17,12 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 
 
 ```{r, setup}
-pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
-
 pacman::p_load(
+  GaitiLabUtils,
+  GBMutils,
   data.table,
+  tidyverse,
+  stringr,
   ggplot2,
   Seurat,
   tidyr,
@@ -29,8 +31,7 @@ pacman::p_load(
   here,
   leiden,
   igraph,
-  tibble,
-  GBMutils
+  tibble
 )
 
 GaitiLabUtils::create_dir(params$output_dir)

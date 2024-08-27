@@ -16,17 +16,12 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 
 ## Prepare data
 ```{r, prep-data}
-pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
-GaitiLabUtils::create_dir(params$output_dir)
-GaitiLabUtils::create_dir(params$plot_dir)
-
-# Code to reproduce Fig 1i
-
-if (!("pacman" %in% rownames(installed.packages()))) {
-  install.packages("pacman")
-}
-
 pacman::p_load(
+  GaitiLabUtils,
+  GBMutils,
+  glue,
+  tidyverse,
+  stringr,
   data.table,
   patchwork,
   ggplot2,
@@ -39,6 +34,9 @@ pacman::p_load(
   apeglm,
   Matrix.utils
 )
+
+GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
 
 # Load object
 seurat_object <- readRDS(params$path_to_seurat_object)

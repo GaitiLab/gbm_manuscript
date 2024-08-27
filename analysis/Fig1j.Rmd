@@ -6,7 +6,7 @@ params:
   output_dir: "output"
   plot_dir: "output/plots"
   gene_set: "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/c5.go.v2023.2.Hs.symbols.gmt"
-  de_results: "de_results.csv"
+  deg_res: "de_results.csv"
 output: html_document
 ---
 
@@ -17,13 +17,11 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 
 ## Prepare data
 ```{r, prep-data}
-pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
-
-# GSEA for DEGs
-GaitiLabUtils::create_dir(params$output_dir)
-GaitiLabUtils::create_dir(params$plot_dir)
-
 pacman::p_load(
+  GaitiLabUtils,
+  GBMutils,
+  tidyverse,
+  stringr,
   data.table,
   ggplot2,
   stringr,
@@ -31,8 +29,12 @@ pacman::p_load(
   fgsea,
 )
 
+# GSEA for DEGs
+GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
+
 # GSEA
-curr_gene_list <- read.csv(params$de_results) # import de results from fig 1i
+curr_gene_list <- read.csv(params$deg_res) # import de results from fig 1i
 
 rownames(curr_gene_list) <- curr_gene_list$gene
 
