@@ -3,18 +3,17 @@ title: "Notebook to reproduce Figure 3a"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Yiyan Wu"
 params:
-    input: "/multiome_results/10_ArchR_new",
-    archr_threads: 8,
-    genome_version: "hg38",
-    celltype_column: "CellClass_L5_2",
-    patient_column: "Patient",
-    region_column: "Region",
-    confidence_column: "Confident_Annotation",
-    p_cutoff: 0.1,
-    include_types: "Malignant_NPC1,Malignant_NPC2,Malignant_OPC,Invasive-high_OPC_NPC1,Malignant_AC,Malignant_MES_AST,Malignant_MES_INT,Malignant_MES_HYP",
-    exclude_types: NULL,
-    include_regions: "PT,TE",
-    topVarGenes: 10000,
+    input: "data/multiome_results/10_ArchR_new/CellClass_L5_2"
+    archr_threads: 8
+    genome_version: "hg38"
+    celltype_column: "CellClass_L5_2"
+    patient_column: "Patient"
+    region_column: "Region"
+    confidence_column: "Confident_Annotation"
+    include_types: "Malignant_NPC1,Malignant_NPC2,Malignant_OPC,Invasive-high_OPC_NPC1,Malignant_AC,Malignant_MES_AST,Malignant_MES_INT,Malignant_MES_HYP"
+    exclude_types: NULL
+    include_regions: "PT,TE"
+    topVarGenes: 10000
     folder_name: "CellClass_L5_2_archr_top10000"
     out_dir: "output"
 output: html_document
@@ -25,11 +24,9 @@ output: html_document
 knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 ```
 
-
 ## Prepare data
 ```{r, prep-data}
-pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
-GaitiLabUtils::create_dir(params$out_dir)
+pacman::p_load(ArchR, presto, ggplot2, ggrepel, mitch, fgsea, readr, msigdbr, escape, dittoSeq, tidyr, dplyr, stringr, data.table,GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
 
 # Load the ArchR library
 addArchRThreads(threads = as.numeric(params$archr_threads))
@@ -68,50 +65,55 @@ archr_proj_low_and_high <- archr_proj[which(getCellColData(archr_proj, select = 
 archr_proj_low <- archr_proj_low_and_high[which(getCellColData(archr_proj_low_and_high, select = cell_type_column, drop = TRUE) %in% low)]
 archr_proj_high <- archr_proj_low_and_high[which(getCellColData(archr_proj_low_and_high, select = cell_type_column, drop = TRUE) %in% high)]
 
-curr_results <- getMarkerFeatures(
-    ArchRProj = archr_proj_low_and_high,
-    useMatrix = "GeneScoreMatrix",
-    groupBy = cell_type_column,
-    useGroups = high,
-    bgdGroups = low,
-    bias = c("TSSEnrichment", "log10(nFrags)"),
-    testMethod = "wilcoxon",
-    maxCells = 100000,
-    logFile = createLogFile(name = "getMarkerFeatures", logDir = log_dir)
-)
+# # Get differentially accessible genes
+# curr_results <- getMarkerFeatures(
+#     ArchRProj = archr_proj_low_and_high,
+#     useMatrix = "GeneScoreMatrix",
+#     groupBy = cell_type_column,
+#     useGroups = high,
+#     bgdGroups = low,
+#     bias = c("TSSEnrichment", "log10(nFrags)"),
+#     testMethod = "wilcoxon",
+#     maxCells = 100000
+# )
 
-marker_list <- data.table(
-    name = curr_results@elementMetadata@listData$name,
-    chr = as.character(curr_results@elementMetadata@listData$seqnames),
-    start = curr_results@elementMetadata@listData$start,
-    end = curr_results@elementMetadata@listData$end,
-    log2FC = curr_results@assays@data$Log2FC[[1]],
-    Mean = curr_results@assays@data$Mean[[1]],
-    FDR = curr_results@assays@data$FDR[[1]],
-    Pval = curr_results@assays@data$Pval[[1]],
-    MeanDiff = curr_results@assays@data$MeanDiff[[1]],
-    AUC = curr_results@assays@data$AUC[[1]],
-    MeanBGD = curr_results@assays@data$MeanBGD[[1]]
-)
+# marker_list <- data.table(
+#     name = curr_results@elementMetadata@listData$name,
+#     chr = as.character(curr_results@elementMetadata@listData$seqnames),
+#     start = curr_results@elementMetadata@listData$start,
+#     end = curr_results@elementMetadata@listData$end,
+#     log2FC = curr_results@assays@data$Log2FC[[1]],
+#     Mean = curr_results@assays@data$Mean[[1]],
+#     FDR = curr_results@assays@data$FDR[[1]],
+#     Pval = curr_results@assays@data$Pval[[1]],
+#     MeanDiff = curr_results@assays@data$MeanDiff[[1]],
+#     AUC = curr_results@assays@data$AUC[[1]],
+#     MeanBGD = curr_results@assays@data$MeanBGD[[1]]
+# )
 
-# Get highly variable genes
-curr_cells <- archr_proj_low_and_high$cellNames
-gene_variances <- rowIQRs(gene_score_mat[, curr_cells], useNames = TRUE)
-gene_variances <- gene_variances[order(gene_variances, decreasing = TRUE)]
+# # extract gene scores
+# gene_scores <- getMatrixFromProject(archr_proj_low_and_high, useMatrix = "GeneScoreMatrix",
+#                                 logFile = createLogFile(name = "getMatrixFromProject"))
+# gene_score_mat <- gene_scores@assays@data$GeneScoreMatrix
+# rownames(gene_score_mat) <- gene_scores@elementMetadata@listData$name
 
-top_genes <- names(gene_variances)[1:params$topVarGenes]
-marker_list <- marker_list[!is.na(FDR), ]
-marker_list <- marker_list[name %in% top_genes, ]
-marker_list$FDR <- p.adjust(marker_list$Pval, method = "fdr")
+# # Get highly variable genes
+# curr_cells <- archr_proj_low_and_high$cellNames
+# gene_variances <- rowIQRs(gene_score_mat[, curr_cells], useNames = TRUE)
+# gene_variances <- gene_variances[order(gene_variances, decreasing = TRUE)]
 
-marker_list <- marker_list %>% mutate(
-    comparison = paste0(high, "_vs_All"),
-    cell_type = paste0(high, "_vs_All"),
-)
+# top_genes <- names(gene_variances)[1:params$topVarGenes]
+# marker_list <- marker_list[!is.na(FDR), ]
+# marker_list <- marker_list[name %in% top_genes, ]
+# marker_list$FDR <- p.adjust(marker_list$Pval, method = "fdr")
 
-# Volcano plot for differentially accessible genes and NOTCH signaling pathway genes
-marker_list$label <- ifelse(marker_list$FDR < 0.05 & abs(as.numeric(marker_list$log2FC)) > 0.38, "adj_p<0.05 & log2FC>0.38", "adj_p>=0.05 or log2FC<0.38")
-marker_list <- marker_list[!is.na(FDR), ]
+# # Volcano plot for differentially accessible genes and NOTCH signaling pathway genes
+# marker_list$label <- ifelse(marker_list$FDR < 0.05 & abs(as.numeric(marker_list$log2FC)) > 0.38, "adj_p<0.05 & log2FC>0.38", "adj_p>=0.05 or log2FC<0.38")
+# marker_list <- marker_list[!is.na(FDR), ]
+
+# # Alternatively, just load the marker list
+marker_dir <- paste0(params$input, "/DA/NPC2+/CellClass_L5_2_archr_top10000_PT_TE", "/Pairwise_DA_", "all", "_low_vs_high.csv")
+marker_list <- fread(marker_dir)
 
 # Specify the log2FC and FDR cutoffs
 curr.log2FC <- 0.38
@@ -133,6 +135,7 @@ marker_list$dalabel <- NA
 marker_list$dalabel[marker_list$diffaccessible != "Not significant"] <- marker_list$name[marker_list$diffaccessible != "Not significant"]
 
 # Overlay the volcano plot with the NOTCH signaling pathway genes
+all_gene_sets = msigdbr(species = "Homo sapiens")
 specific_gene <- all_gene_sets %>%
     filter(gs_name == "WP_NOTCH_SIGNALING") %>%
     pull(gene_symbol)
@@ -142,8 +145,9 @@ marker_list <- marker_list %>%
         TRUE ~ "no"
     ))
 
-# Create the volcano plot with highlighted genes
-marker_list %>% filter(highlight == "yes")
+# Color palette
+color_palette <- c("yes" = "#d61f26", "no" = "black", "specific_gene" = "#00798CFF")
+
 ```
 
 ## Visualize
@@ -172,7 +176,7 @@ volc <- ggplot(data = marker_list, aes(x = log2FC, y = -log10(FDR), label = name
     scale_color_manual(values = color_palette, guide = guide_legend(title = "")) +
     guides(color = guide_legend(title = "")) +
     labs(
-        x = expression(Log[2] * " Fold Change"),
+        x = expression(Log[2] * " Fold Change (Gene accessibility score)"),
         y = expression(-Log[10] * " FDR")
     ) +
     theme_minimal() +
@@ -185,9 +189,9 @@ volc <- ggplot(data = marker_list, aes(x = log2FC, y = -log10(FDR), label = name
         panel.grid.minor = element_blank()
     )
 ggsave(
-    filename = paste0("DiffAccess_", "all", "_low_vs_high_highlight_specific_gene.pdf"),
+    filename = paste0("DiffAccess_", "all", "_low_vs_high_highlight_NOTCH.pdf"),
     path = params$out_dir,
-    units = "in", width = 5, height = 6
+    units = "in", width = 5, height = 5
 )
 
 volc
