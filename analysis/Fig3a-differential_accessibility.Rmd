@@ -4,17 +4,6 @@ date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Yiyan Wu"
 params:
     input: "data/multiome_results/10_ArchR_new/CellClass_L5_2"
-    archr_threads: 8
-    genome_version: "hg38"
-    celltype_column: "CellClass_L5_2"
-    patient_column: "Patient"
-    region_column: "Region"
-    confidence_column: "Confident_Annotation"
-    include_types: "Malignant_NPC1,Malignant_NPC2,Malignant_OPC,Invasive-high_OPC_NPC1,Malignant_AC,Malignant_MES_AST,Malignant_MES_INT,Malignant_MES_HYP"
-    exclude_types: NULL
-    include_regions: "PT,TE"
-    topVarGenes: 10000
-    folder_name: "CellClass_L5_2_archr_top10000"
     out_dir: "output"
 output: html_document
 ---
@@ -28,90 +17,7 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 ```{r, prep-data}
 pacman::p_load(ArchR, presto, ggplot2, ggrepel, mitch, fgsea, readr, msigdbr, escape, dittoSeq, tidyr, dplyr, stringr, data.table,GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
 
-# Load the ArchR library
-addArchRThreads(threads = as.numeric(params$archr_threads))
-addArchRGenome(params$genome_version)
-
-# Load the ArchR project
-archr_proj <- loadArchRProject(params$input)
-cell_type_column <- paste0("Seurat_", params$celltype_column)
-patient_column <- paste0("Seurat_", params$patient_column)
-region_column <- paste0("Seurat_", params$region_column)
-confidence_column <- paste0("Seurat_", params$confidence_column)
-
-# Filter cells based on cell types, regions, and confidence
-if (!is.null(params$include_types)) {
-    include_types <- str_split(params$include_types, ",")[[1]]
-    archr_proj <- archr_proj[which(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% include_types)]
-} else if (!is.null(params$exclude_types)) {
-    exclude_types <- str_split(params$exclude_types, ",")[[1]]
-    archr_proj <- archr_proj[which(!(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% exclude_types))]
-}
-
-archr_proj <- archr_proj[which(getCellColData(archr_proj, select = confidence_column, drop = TRUE) == "TRUE")]
-
-if (!is.null(params$include_regions)) {
-    include_regions <- str_split(params$include_regions, ",")[[1]]
-    archr_proj <- archr_proj[which(getCellColData(archr_proj, select = region_column, drop = TRUE) %in% include_regions)]
-}
-
-# Define groups
-df <- getCellColData(archr_proj, select = c(cell_type_column, patient_column, region_column), drop = TRUE)
-low <- c("Malignant_NPC1", "Malignant_NPC2", "Malignant_OPC")
-high <- "Invasive-high_OPC_NPC1"
-
-# Differential accessibility analysis
-archr_proj_low_and_high <- archr_proj[which(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% c(low, high))]
-archr_proj_low <- archr_proj_low_and_high[which(getCellColData(archr_proj_low_and_high, select = cell_type_column, drop = TRUE) %in% low)]
-archr_proj_high <- archr_proj_low_and_high[which(getCellColData(archr_proj_low_and_high, select = cell_type_column, drop = TRUE) %in% high)]
-
-# # Get differentially accessible genes
-# curr_results <- getMarkerFeatures(
-#     ArchRProj = archr_proj_low_and_high,
-#     useMatrix = "GeneScoreMatrix",
-#     groupBy = cell_type_column,
-#     useGroups = high,
-#     bgdGroups = low,
-#     bias = c("TSSEnrichment", "log10(nFrags)"),
-#     testMethod = "wilcoxon",
-#     maxCells = 100000
-# )
-
-# marker_list <- data.table(
-#     name = curr_results@elementMetadata@listData$name,
-#     chr = as.character(curr_results@elementMetadata@listData$seqnames),
-#     start = curr_results@elementMetadata@listData$start,
-#     end = curr_results@elementMetadata@listData$end,
-#     log2FC = curr_results@assays@data$Log2FC[[1]],
-#     Mean = curr_results@assays@data$Mean[[1]],
-#     FDR = curr_results@assays@data$FDR[[1]],
-#     Pval = curr_results@assays@data$Pval[[1]],
-#     MeanDiff = curr_results@assays@data$MeanDiff[[1]],
-#     AUC = curr_results@assays@data$AUC[[1]],
-#     MeanBGD = curr_results@assays@data$MeanBGD[[1]]
-# )
-
-# # extract gene scores
-# gene_scores <- getMatrixFromProject(archr_proj_low_and_high, useMatrix = "GeneScoreMatrix",
-#                                 logFile = createLogFile(name = "getMatrixFromProject"))
-# gene_score_mat <- gene_scores@assays@data$GeneScoreMatrix
-# rownames(gene_score_mat) <- gene_scores@elementMetadata@listData$name
-
-# # Get highly variable genes
-# curr_cells <- archr_proj_low_and_high$cellNames
-# gene_variances <- rowIQRs(gene_score_mat[, curr_cells], useNames = TRUE)
-# gene_variances <- gene_variances[order(gene_variances, decreasing = TRUE)]
-
-# top_genes <- names(gene_variances)[1:params$topVarGenes]
-# marker_list <- marker_list[!is.na(FDR), ]
-# marker_list <- marker_list[name %in% top_genes, ]
-# marker_list$FDR <- p.adjust(marker_list$Pval, method = "fdr")
-
-# # Volcano plot for differentially accessible genes and NOTCH signaling pathway genes
-# marker_list$label <- ifelse(marker_list$FDR < 0.05 & abs(as.numeric(marker_list$log2FC)) > 0.38, "adj_p<0.05 & log2FC>0.38", "adj_p>=0.05 or log2FC<0.38")
-# marker_list <- marker_list[!is.na(FDR), ]
-
-# # Alternatively, just load the marker list
+# Load the marker list
 marker_dir <- paste0(params$input, "/DA/NPC2+/CellClass_L5_2_archr_top10000_PT_TE", "/Pairwise_DA_", "all", "_low_vs_high.csv")
 marker_list <- fread(marker_dir)
 

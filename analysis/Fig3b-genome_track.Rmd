@@ -1,11 +1,11 @@
 ---
 title: "Notebook to reproduce Figure 3b"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
-author: "XXX"
+author: "Yiyan Wu"
 params:
-  integrated_object: "merged.rds"
-  integrated_atac_only_object: "XXX"
-  output_dir: "XXX"
+  integrated_object: "data/gbm_regional_study.rds"
+  integrated_atac_only_object: "data/integrated_atac_only_object.rds"
+  output_dir: "output"
 output: html_document
 ---
 
@@ -15,20 +15,18 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 
 ## Prepare data
 ```{r, prep-data}
-pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
-GaitiLabUtils::create_dir(params$output_dir)
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, Seurat, Signac, stringr, BSgenome.Hsapiens.UCSC.hg38, EnsDb.Hsapiens.v86, dplyr, Rsamtools, stringi, fastmatch, RcppRoll, scales, patchwork, tidyr, Matrix, GenomicRanges)
 
 # Plot genome browser tracks with Seurat
-log_info("Creating genome browser tracks with Seurat...")
-integrated_seurat <- readRDS(params$integrated_atac_only_object)
+integrated_seurat <- readRDS(params$integrated_object)
 metadata <- integrated_seurat[[]] %>%
-  filter(Platform == "Multiome") %>%
-  filter(CellClass_L1 == "Malignant") %>%
-  filter(Confident_Annotation == "TRUE") %>%
-  select(CellID, CellClass_L5_2)
+  dplyr::filter(Platform == "Multiome") %>%
+  dplyr::filter(CellClass_L1 == "Malignant") %>%
+  dplyr::filter(Confident_Annotation == "TRUE") %>%
+  dplyr::select(CellID, CellClass_L5_2)
 
 # Load seurat object for visualization
-curr_seurat_data <- readRDS(params$integrated_object)
+curr_seurat_data <- readRDS(params$integrated_atac_only_object)
 curr_seurat_data <- subset(curr_seurat_data, subset = CellClass_L1 == "Malignant")
 
 # Add metadata
@@ -36,53 +34,34 @@ curr_seurat_data <- subset(curr_seurat_data, subset = CellID %in% metadata$CellI
 metadata <- metadata[match(curr_seurat_data$CellID, metadata$CellID), ] # Match metadata rows
 metadata <- metadata %>%
   mutate(CellClass_L5_2 = case_when(
-    CellClass_L5_2 == "Malignant_NPC1" ~ "Malignant NPC1",
-    CellClass_L5_2 == "Malignant_NPC2" ~ "Malignant NPC2",
-    CellClass_L5_2 == "Malignant_OPC" ~ "Malignant OPC",
-    CellClass_L5_2 == "Malignant_AC" ~ "Malignant AC",
-    CellClass_L5_2 == "Malignant_MES_AST" ~ "Malignant MES-AST",
-    CellClass_L5_2 == "Malignant_MES_INT" ~ "Malignant MES-INT",
-    CellClass_L5_2 == "Malignant_MES_HYP" ~ "Malignant MES-HYP",
-    CellClass_L5_2 == "Invasive-high OPC/NPC1" ~ "Invasive-high OPC/NPC1"
+    CellClass_L5_2 == "Malignant_NPC1" ~ "NPC1-like",
+    CellClass_L5_2 == "Malignant_NPC2" ~ "NPC2-like",
+    CellClass_L5_2 == "Malignant_OPC" ~ "OPC-like",
+    CellClass_L5_2 == "Malignant_AC" ~ "AC-like",
+    CellClass_L5_2 == "Malignant_MES_AST" ~ "MES-AC-like",
+    CellClass_L5_2 == "Malignant_MES_INT" ~ "MES-INT-like",
+    CellClass_L5_2 == "Malignant_MES_HYP" ~ "MES-HYP-like",
+    CellClass_L5_2 == "Invasive-high OPC/NPC1" ~ "Invasive-high OPC/NPC1-like"
   ))
 curr_seurat_data <- AddMetaData(curr_seurat_data, metadata$CellClass_L5_2, col.name = "CellClass_L5_2")
 
 # Define custom color palette
 color_palette <- c(
-  "Malignant NPC1" = "#86CCE8",
-  "Malignant NPC2" = "#ADD7E5",
-  "Malignant OPC" = "#AECFA5",
-  "Malignant AC" = "#DFB63B",
-  "Malignant MES-AST" = "#F37F72",
-  "Malignant MES-INT" = "#B02425",
-  "Malignant MES-HYP" = "#F1634B",
-  "Invasive-high OPC/NPC1" = "#2B7095"
+  "NPC1-like" = "#86CCE8",
+  "NPC2-like" = "#ADD7E5",
+  "OPC-like" = "#AECFA5",
+  "AC-like" = "#DFB63B",
+  "MES-AC-like" = "#F37F72",
+  "MES-INT-like" = "#B02425",
+  "MES-HYP-like" = "#F1634B",
+  "Invasive-high OPC/NPC1-like" = "#2B7095"
 )
 
 # Set ident
 Idents(curr_seurat_data) <- "CellClass_L5_2"
 DefaultAssay(curr_seurat_data) <- "ATAC"
 
-curr_seurat_data$CellClass_L5_2 <- factor(curr_seurat_data$CellClass_L5_2, levels = c("Invasive-high OPC/NPC1", "Malignant NPC1", "Malignant NPC2", "Malignant OPC", "Malignant AC", "Malignant MES-AST", "Malignant MES-INT", "Malignant MES-HYP"))
-```
-
-```{r, vis-cov, fig.width= 10, fig.height = 10}
-# CoveragePlot
-cov_plot <- CoveragePlot(
-  object = curr_seurat_data,
-  region = "chr19-39497000-39509000",
-  group.by = "CellClass_L5_2",
-  annotation = FALSE,
-  peaks = FALSE
-) +
-  scale_fill_manual(values = color_palette)
-ggsave(
-  filename = paste0(params$output_dir, "/CoveragePlot_DLL3.pdf"),
-  plot = cov_plot,
-  width = 10,
-  height = 10
-)
-cov_plot
+curr_seurat_data$CellClass_L5_2 <- factor(curr_seurat_data$CellClass_L5_2, levels = c("Invasive-high OPC/NPC1-like", "NPC1-like", "NPC2-like", "OPC-like", "AC-like", "MES-AC-like", "MES-INT-like", "MES-HYP-like"))
 ```
 
 ```{r, vis-annot, fig.width = 10, fig.height = 10 }
@@ -106,6 +85,7 @@ gene_plot
 expr_plot <- ExpressionPlot(
   object = curr_seurat_data,
   features = "DLL3",
+  group.by = "CellClass_L5_2",
   assay = "RNA",
   slot = "data"
 ) +
@@ -119,6 +99,28 @@ ggsave(
 expr_plot
 ```
 
+```{r, vis-cov, fig.width= 10, fig.height = 10}
+source("utils/utilities.R")
+source("utils/visualization.R")
+source("utils/fragments.R")
+
+# CoveragePlot
+cov_plot <- CoveragePlot(
+  object = curr_seurat_data,
+  region = "chr19-39497000-39509000",
+  group.by = "CellClass_L5_2",
+  annotation = FALSE,
+  peaks = FALSE
+) +
+  scale_fill_manual(values = color_palette)
+ggsave(
+  filename = paste0(params$output_dir, "/CoveragePlot_DLL3.pdf"),
+  plot = cov_plot,
+  width = 10,
+  height = 10
+)
+cov_plot
+```
 
 ```{r, vis-combined, fig.width = 10, fig.height = 10}
 combined <- CombineTracks(
@@ -135,7 +137,6 @@ ggsave(
 )
 combined
 ```
-
 
 ## Session Info
 ```{r, session-info, echo = FALSE}
