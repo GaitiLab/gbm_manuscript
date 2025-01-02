@@ -273,7 +273,38 @@ p <- ggplot(data = stat_res_shuffled_df_long %>% filter(signature == "Invasive-h
             glue("k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"),
     ) +
     theme(aspect.ratio = 0.5)
-ggsave(p, filename = "histo_test.pdf", width = 6)
+ggsave(p, filename = glue("Fig2f-malign_signature_vs_proximity_k{params$k_neighbors}_histo.pdf"), width = 6, path = params$output_dir)
+```
+
+```{r}
+color_gradient <- setNames(RColorBrewer::brewer.pal(n = 8, name = "Blues")[c(3, 8)], c("Closer to\nNeurons", "Closer to\ntumor core"))
+
+
+stat_res_shuffled_df_long <- stat_res_df %>%
+    select(cat_dist_renamed, variable, starts_with("cat_dist_sid")) %>%
+    rename(signature = variable) %>%
+    reshape2::melt()
+
+stat_res_obs_df <- stat_res_df %>%
+    select(cat_dist_renamed, variable, AddModuleScore_obs, perm_median, z_score, p_value, p_value_adj) %>%
+    distinct()
+
+p <- ggplot(data = stat_res_shuffled_df_long %>% filter(signature != "Invasive-high OPC/NPC1"), aes(x = value, fill = cat_dist_renamed)) +
+    geom_histogram(binwidth = 1e-3, show.legend = FALSE) +
+    ggh4x::facet_grid2(signature ~ cat_dist_renamed, axes = "all", scales = "free_x") +
+    geom_vline(data = stat_res_obs_df %>% filter(variable != "Invasive-high OPC/NPC1"), aes(xintercept = AddModuleScore_obs, color = cat_dist_renamed)) +
+    geom_vline(data = stat_res_obs_df %>% filter(variable != "Invasive-high OPC/NPC1"), aes(xintercept = perm_median), color = "red", linetype = "dashed") +
+    scale_x_continuous(breaks = scales::pretty_breaks()) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    GBMutils::GBM_theme() +
+    scale_fill_manual(values = color_gradient, guide = guide_legend(override.aes = list(size = 5))) +
+    scale_color_manual(values = color_gradient, guide = guide_legend(title = "Observed score", override.aes = list(size = 5))) +
+    labs(
+        x = "Module Score", y = "No. of iterations", subtitle =
+            glue("k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"),
+    ) +
+    theme(aspect.ratio = 0.5)
+ggsave(p, filename = glue("SuppFig5-malign_signature_vs_proximity_k{params$k_neighbors}_histo_PL_and_DL.pdf"), width = 12, path = params$output_dir)
 ```
 
 ### Option 2: Barplot
@@ -313,7 +344,7 @@ p <- ggplot(data = stat_res_df, aes(
     ) +
     coord_flip() +
     theme(strip.text.x.top = element_text(size = rel(0.95)))
-ggsave(p, filename = "barplot_test.pdf", height = 8)
+ggsave(p, filename = glue("Fig2f-malign_signature_vs_proximity_k{params$k_neighbors}_barplot.pdf"), height = 8, path = params$output_dir)
 ```
 
 ### Option 3: old version
