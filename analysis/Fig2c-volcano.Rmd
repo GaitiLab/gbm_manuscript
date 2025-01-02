@@ -1,17 +1,18 @@
 ---
-title: "Notebook to reproduce Figure 2b"
+title: "Notebook to reproduce Figure 2c"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Joan Kant"
 params:
     output_dir: "output/cci_scRNAseq"
-    avg_expr: "data/cci_scRNAseq/mean_exp_by_Sample__CCI_CellClass_L2_2_RNA_counts.rds"
-    meta: "data/cci_scRNAseq/gbm_regional_study__metadata.rds"
-    interactions: "data/cci_scRNAseq/402c_filtering_aggregated_res.rds"
+    avg_expr: "output/cci_scRNAseq/processed/mean_exp_by_Sample__CCI_CellClass_L2_2_RNA_counts.rds"
+    meta: "preprocessing/scRNAseq/CCI_CellClass_L2_2/output/000_data/gbm_regional_study_top_up__metadata.rds"
+    interactions: "preprocessing/scRNAseq/CCI_CellClass_L2_2/output/402_aggregation_and_filtering/402c_filtering_aggregated_res.rds"
     condition_varname: "Region"
     pval_type: "pval_adj"
     condition_oi: "PT"
-    pair_y: "Neuron__Invasive-high OPC/NPC1"
-    pair_x: "Neuron__Progenitor_like"
+    pair_y: "Glutamatergic__Invasive-high OPC/NPC1"
+    pair_x: "Glutamatergic__Progenitor_like"
+    neuron_subtype: "Glutamatergic"
     alpha: 0.05
     ref_db: "misc/ref_db.rds"
 output: html_document
@@ -25,7 +26,14 @@ options(ggrepel.max.overlaps = Inf)
 ```{r, config}
 pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, readxl, ggplot2, ggrastr, ggtext)
 
-label_color <- setNames(c("background", GBMutils::load_color_palette("General_groups")[2:4]), c("black,", "NRXN-NLGN interactions", "Calcium signaling", "Glutamate production/uptake"))
+
+label_color <- setNames(
+    c(
+        "background",
+        c("#2B7095", "#C05E00")
+    ),
+    c("black,", "NRXN-NLGN interactions", "Glutamate production/uptake")
+)
 
 GaitiLabUtils::create_dir(params$output_dir)
 ```
@@ -66,7 +74,7 @@ new_colnames <- str_sub_all(column_names, 2) %>%
 colnames(avg_exp) <- new_colnames
 
 # Format gene expression matrix
-avg_exp_long <- data.frame(avg_exp, check.names = FALSE) %>%
+avg_exp_long <- data.frame(data.matrix(avg_exp), check.names = FALSE) %>%
     rownames_to_column("gene") %>%
     # Convert to long-format
     pivot_longer(names_sep = ":", names_to = c("label", "Sample"), cols = all_of(colnames(avg_exp)), values_to = "avg_expression") %>%
@@ -83,7 +91,7 @@ exp_df <- avg_exp_long %>%
     # Taking log-mean
     mutate(mean = log2(mean + 1)) %>%
     filter(
-        label %in% c("Neuron", "Progenitor-like", "Invasive-high OPC/NPC1"),
+        label %in% c(params$neuron_subtype, "Progenitor-like", "Invasive-high OPC/NPC1"),
         # Only keep genes that are in database
         gene %in% genes_in_db
     ) %>%
@@ -136,15 +144,33 @@ df_region <- exp_df %>%
 ```
 ## Visualization
 ```{r, vis-plot, fig.width = 15, fig.height = 15}
-p <- ggplot(data = df_region, aes(x = diff, y = Neuron)) +
+min_limit <- plyr::round_any(min(df_region$diff), 0.5, f = floor)
+max_limit <- plyr::round_any(max(df_region$diff), 0.5, f = ceiling)
+global_max_lim <- max(abs(c(min_limit, max_limit)))
+
+p <- ggplot(data = df_region, aes(x = diff, y = !!sym(params$neuron_subtype))) +
     geom_point_rast(size = 2, alpha = .1, color = "black", stroke = NA) +
     labs(
-        y = paste0("log<sub>2</sub>(mean exp + 1) in Neuron"),
+        y = paste0("log<sub>2</sub>(mean exp + 1) in ", params$neuron_subtype),
         x = paste0(paste0("log<sub>2</sub>(mean exp + 1) in ", "Invasive-high OPC/NPC1"), " - ", paste0("log<sub>2</sub>(mean exp + 1) in ", "Progenitor-like")),
-        subtitle = glue("No. of genes {formatC(nrow(df_region), big.mark=',')}")
+        subtitle = glue("No. of genes {prettyNum(nrow(df_region), big.mark=',')}")
     ) +
     GBMutils::GBM_theme() +
-    theme(aspect.ratio = 1) +
+    theme(
+        aspect.ratio = 1,
+        plot.subtitle = element_text(size = ggplot2::rel(1.3)),
+        axis.title.x = ggtext::element_markdown(
+            size = ggplot2::rel(1.2),
+            face = "plain"
+        ),
+        axis.title.y = ggtext::element_markdown(
+            size = ggplot2::rel(1.2),
+            face = "plain"
+        ),
+        axis.text = ggplot2::element_text(size = ggplot2::rel(1.2)),
+        legend.title = element_text(size = rel(1.2)),
+        legend.text = element_text(size = rel(1.2))
+    ) +
     # Labeling
     ggnewscale::new_scale("colour") +
     scale_color_manual(
@@ -156,13 +182,17 @@ p <- ggplot(data = df_region, aes(x = diff, y = Neuron)) +
     geom_point_rast(data = df_region %>% filter(is_gene_oi != "background"), aes(color = is_gene_oi), alpha = 1, show.legend = TRUE, size = 2, stroke = NA) +
     geom_hline(yintercept = 0, linetype = "dashed") +
     geom_vline(xintercept = 0, linetype = "dashed") +
-    ggrepel::geom_label_repel(data = df_region %>% filter(is_gene_oi != "background"), aes(label = gene, color = is_gene_oi), show.legend = FALSE, min.segment.length = 0.1, size = 5) +
-    coord_fixed()
+    ggrepel::geom_label_repel(data = df_region %>% filter(is_gene_oi != "background"), aes(label = gene, color = is_gene_oi), alpha = 1, show.legend = FALSE, min.segment.length = 0.1, size = 6) +
+    coord_fixed(xlim = c(-global_max_lim, global_max_lim))
 p
 
 ggsave(
     plot = p,
-    filename = glue("{params$output_dir}/Fig2b-volcano__{params$condition_oi}_Neuron_x_diff_Progenitor_like__Invasive-high_OPC_NPC1__bg_db_genes.pdf"), width = 12, height = 12
+    filename = file.path(
+        params$output_dir,
+        glue("Fig2c-volcano__{params$condition_oi}_{params$neuron_subtype}_x_diff_Progenitor_like__Invasive-high_OPC_NPC1__bg_db_genes.pdf")
+    ),
+    width = 12, height = 12
 )
 ```
 

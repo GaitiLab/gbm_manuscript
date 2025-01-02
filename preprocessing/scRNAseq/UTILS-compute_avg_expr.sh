@@ -21,7 +21,7 @@
 input_file="${PWD}/data/cci_scRNAseq/gbm_regional_study.rds"
 
 # TODO: remove later only for testing
-input_file="/cluster/projects/gaitigroup/Data/GBM/processed_data/gbm_regional_study.rds"
+input_file="/cluster/projects/gaitigroup/Users/Benson/Parsebio/seuratobjects/gbm_regional_study_top_up.rds"
 
 output_dir="${PWD}/output/cci_scRNAseq/processed"
 

@@ -22,13 +22,8 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 pacman::p_load(glue, data.table, tidyverse, stringr, ggplot2, GaitiLabUtils)
 
 # Set color palette for spatial cell type distribution
-colors <- GBMutils::load_color_palette("CCI_CellClass_L2_2")
-names(colors)[names(colors) == "Myeloid_Immunosuppressive"] <- "Myeloid"
-names(colors)[names(colors) == "Endothelial"] <- "BV"
+colors <- GBMutils::load_color_palette("Spatial_CellClass_L2")
 celltypes <- names(colors)
-
-colors[["Undetermined"]] <- "lightgrey"
-colors[["Other"]] <- "lightgrey"
 
 # Define colors for plot
 color_labels <- GBMutils::load_color_palette("Divergent_1")
@@ -82,7 +77,7 @@ p_filled <- ggplot(polygons_df, aes(x = vertex_x, y = vertex_y)) +
     ), show.legend = TRUE, linewidth = 0.15) +
     ggplot2::labs(
         x = "X (µm)", y = "Y (µm)",
-        subtitle = glue::glue("n={formatC(nrow(meta), big.mark = ',')}")
+        subtitle = glue::glue("No. of cells={prettyNum(nrow(meta), big.mark = ',')}")
     ) +
     scale_fill_manual(
         values = colors,
@@ -156,8 +151,9 @@ stats_res <- readRDS(params$stats_res) %>%
     mutate(
         # For formatting purposes in plot
         source_target = str_replace_all(source_target, c("__" = " - ", "_" = "-")),
-        neg_log10_padj = -log10(p.adjust(pval, method = "bonferroni"))
     )
+# EDIT: change pval
+stats_res$neg_log10_padj <- -log10(p.adjust(stats_res$p_val, method = "bonferroni"))
 
 # for visualization purposes
 celltype_order <- stats_res %>%

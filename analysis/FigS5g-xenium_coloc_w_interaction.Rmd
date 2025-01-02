@@ -62,7 +62,6 @@ stats_res <- do.call(rbind, lapply(interactions, function(interaction_oi, sample
 }, input_dir = params$input_dir, sample_id = params$sample_id)) %>%
     separate(interaction, into = c("ref_celltype_pair", "ref_gene_pair"), sep = "_x_", remove = FALSE) %>%
     mutate(
-        neg_log10_padj = -log10(p.adjust(pval, method = "bonferroni")),
         source_target = str_replace_all(source_target, "__", " - "),
         ref_gene_pair = str_replace_all(ref_gene_pair, "__", "-"),
         ligand = ifelse(!is.na(ligand), "ligand", NA),
@@ -71,6 +70,8 @@ stats_res <- do.call(rbind, lapply(interactions, function(interaction_oi, sample
         target_receptor = ifelse(is.na(receptor), target, paste0(target, ":", receptor))
     ) %>%
     unite(source_target, source_ligand, target_receptor, sep = " - ")
+
+stats_res$neg_log10_padj <- -log10(p.adjust(stats_res$pval, method = "bonferroni"))
 ```
 
 ## Visualization

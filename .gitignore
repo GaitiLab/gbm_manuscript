@@ -68,3 +68,5 @@ TEST-*
 tmp.txt
 
 000_ARCHIVED
+.nextflow
+preprocessing/scRNAseq/CCI_CellClass_L2_2/gaitilab.config

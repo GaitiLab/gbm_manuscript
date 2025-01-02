@@ -3,7 +3,7 @@ title: "Notebook to reproduce Figure S5c (right)"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Joan Kant"
 params:
-    interactions: "data/cci_scRNAseq/402c_filtering_aggregated_res.rds"
+    interactions: "preprocessing/scRNAseq/CCI_CellClass_L2_2/output/402_aggregation_and_filtering/402c_filtering_aggregated_res.rds"
     is_directed: TRUE
     condition_varname: "Region"
     sender: "Differentiated_like"
@@ -80,7 +80,7 @@ p <- ggplot(
 
 ggsave(
     plot = p,
-    filename = glue("{params$output_dir}/rank_plot_{source_target_oi_formatted}_in_{params$region_oi}.pdf"), height = 10, width = 10
+    filename = file.path(params$output_dir, glue("rank_plot_{source_target_oi_formatted}_in_{params$region_oi}.pdf")), height = 10, width = 10
 )
 ```
 

@@ -1,0 +1,346 @@
+---
+title: "Notebook to reproduce Figure XX"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+  output_dir: 
+output: html_document
+---
+
+
+```{r, rmarkdown-setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
+
+params <- list()
+params$sample_id <- "Gaiti_Yiyan__6425_cortex_3_D1"
+params$segmentation_masks_path <- glue("data/VisiumHD/processed/{params$sample_id}__masks.json")
+params$seurat_obj_path <- glue("data/VisiumHD/processed/{params$sample_id}.rds")
+params$output_dir <- "output/VisiumHD"
+params$k_neighbors <- 25
+
+params$pseudobulk_scores_path <- glue("data/VisiumHD/processed/10k/6425_combined_pseudobulk_scores_k{params$k_neighbors}.rds")
+params$n_iter <- 10000
+params$lower_limit <- 0.10
+params$upper_limit <- 0.90
+params$scale_factors_path <- glue("/cluster/projects/gaitigroup/Data/GBM_VisiumHD/20240708_LH00244_0121_B22MN7GLT3_Gaiti_Yiyan_Visium/{params$sample_id}/outs/binned_outputs/square_002um/spatial/scalefactors_json.json")
+params$seurat_obj_subset_path <- glue("data/VisiumHD/processed/10k/6425_combined_seurat_obj_meanshortest_k{params$k_neighbors}.rds")
+params$markers_path <- glue("data/VisiumHD/processed/{params$sample_id}_markers_by_celltype.rds")
+```
+
+## Spatial cell type distribution
+```{r, prep-data}
+logr <- init_logging()
+
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, sf, rjson, Seurat)
+
+# Setup color palette
+log_info("Load color palette...")
+palette <- GBMutils::load_color_palette("Spatial_CellClass_L1")
+
+log_info("Load scalefactors...")
+scalefactors <-
+    fromJSON(file = params$scale_factors_path)
+
+log_info("Load segmentation masks...")
+gdf <- read_sf(params$segmentation_masks_path) %>% mutate(geometry_px = geometry)
+# Remove coordinate systems, just want to use cartesian system
+st_crs(gdf) <- NA
+
+
+log_info("Load Seurat object...")
+seurat_obj <- readRDS(params$seurat_obj_path)
+
+log_info("Combine metadata and segmentation masks...")
+meta_sdf <- sf::st_as_sf(
+    (seurat_obj@meta.data) %>%
+        left_join(gdf, by = "id")
+) %>%
+    # Convert to px to microns
+    mutate(geometry = geometry_px * scalefactors$microns_per_pixel)
+
+p <- ggplot(meta_sdf) +
+    geom_sf(aes(fill = BANKSY_snn_res.2_annot), color = NA) +
+    GBMutils::GBM_theme() +
+    scale_fill_manual(
+        values = GBMutils::load_color_palette("Spatial_CellClass_L1"),
+        guide = guide_legend(override.aes = list(size = 5), title = "Cell type")
+    ) +
+    coord_sf() +
+    scale_y_reverse() +
+    labs(
+        x = "X (µm)", y = "Y (µm)", subtitle = paste0("No. cells=", prettyNum(nrow(meta_sdf), big.mark = ","))
+    ) +
+    theme(aspect.ratio = 1, axis.text = element_blank(), axis.ticks = element_blank())
+
+ggsave(plot = p, filename = glue("{params$sample_id}_spatial.pdf"), path = params$output_dir, width = 8, height = 8)
+
+ncells_by_celltype <- meta_sdf %>%
+    count(BANKSY_snn_res.2_annot) %>%
+    mutate(label = paste0("No. cells=", prettyNum(n, big.mark = ",")))
+
+# Plot by cell type
+p <- ggplot(meta_sdf) +
+    geom_sf(aes(fill = BANKSY_snn_res.2_annot), color = NA) +
+    GBMutils::GBM_theme() +
+    ggh4x::facet_wrap2(. ~ BANKSY_snn_res.2_annot, axes = "all") +
+    scale_fill_manual(
+        values = GBMutils::load_color_palette("Spatial_CellClass_L1"),
+        guide = guide_legend(override.aes = list(size = 5), title = "Cell type")
+    ) +
+    geom_sf_text(
+        data = ncells_by_celltype, x = -Inf, y = Inf, aes(label = label),
+        hjust = -0.1, vjust = 1.2, size = 3
+    ) +
+    coord_sf() +
+    scale_y_reverse() +
+    labs(
+        x = "X (µm)", y = "Y (µm)",
+    ) +
+    theme(aspect.ratio = 1, axis.text = element_blank(), axis.ticks = element_blank())
+
+ggsave(plot = p, filename = glue("{params$sample_id}_spatial_by_celltype.pdf"), path = params$output_dir, width = 10, height = 10)
+```
+
+## Expression markers (manual)
+```{r}
+markers <- c(
+    "SLC1A2", "ADGRV1",
+    "FLT1", "ABCB1",
+    "DOCK8",
+    "APBB1IP",
+    "CNTNAP2",
+    "SYT1", "PLP1",
+    "MBP", "PCDH15",
+    "CA10"
+)
+markers_df <- data.frame(
+    gene = markers,
+    cell_type = c(rep("Astrocyte", 2), rep("BV", 2), rep("Myeloid", 2), rep("Neuron", 2), rep("Oligodendrocyte", 2), rep("OPC", 2))
+)
+
+Idents(seurat_obj) <- "BANKSY_snn_res.2_annot"
+Idents(seurat_obj) <- factor(Idents(seurat_obj), levels = sort(names(palette)))
+
+p <- DotPlot(subset(seurat_obj, subset = BANKSY_snn_res.2_annot != "Undetermined"),
+    features = (markers_df %>%
+        filter(cell_type %in% (unique(seurat_obj$BANKSY_snn_res.2_annot)))) %>% pull(gene),
+    dot.scale = 8, assay = "RNA", scale = TRUE,
+    group.by =
+    ) +
+    RotatedAxis() + theme(axis.title = element_blank())
+
+ggsave(p, filename = glue("{params$sample_id}_expression_markers.pdf"), path = params$output_dir, height = 5, width = 8)
+```
+
+## Expression markers DE
+
+```{r}
+# markers <- FindAllMarkers(subset(seurat_obj, subset = BANKSY_snn_res.2_annot != "Undetermined"), only.pos = TRUE, assay = "RNA", test.use = "MAST")
+# top_n <- markers %>%
+#     group_by(cluster) %>%
+#     dplyr::filter(avg_log2FC > 1) %>%
+#     slice_head(n = 5) %>%
+#     ungroup()
+# top_n
+
+markers <- readRDS(params$markers_path)
+
+top_n <- markers %>%
+    group_by(cluster) %>%
+    dplyr::filter(avg_log2FC > 1) %>%
+    slice_head(n = 5) %>%
+    ungroup()
+top_n
+
+# seurat_obj_updated <- seurat_obj
+
+p <- DoHeatmap(seurat_obj, features = top_n$gene)
+```
+
+## Relationship proximity Malignant cells - Neurons and subtype signatures
+
+```{r, vis_obs}
+# Define bin names
+categories <- c(
+    paste0("<", params$lower_limit * 100, "%"),
+    "between",
+    paste0(">", params$upper_limit * 100, "%")
+)
+color_gradient <- setNames(RColorBrewer::brewer.pal(n = 8, name = "Blues")[c(3, 5, 8)], categories)
+
+colors <- c(palette["Neuron"], color_gradient)
+
+log_info("Load Seurat object subset...")
+seurat_obj_subset <- readRDS(params$seurat_obj_subset_path)
+
+dist_obs_df <- seurat_obj_subset@meta.data %>%
+    mutate(
+        sample = case_when(
+            sample == "PT1" ~ "Gaiti_Yiyan__6425_cortex_1_A1",
+            sample == "PT3" ~ "Gaiti_Yiyan__6425_cortex_3_D1",
+        ),
+        cat_dist = ifelse(cat_dist == paste0(
+            params$lower_limit * 100, "% <= mean distance <= ",
+            params$upper_limit * 100, "%"
+        ), "between", cat_dist),
+    ) %>%
+    select(sample, id, cat_dist, mean_dist, BANKSY_snn_res.2_annot)
+dist_obs_df$id <- str_split(dist_obs_df$id, "_", simplify = TRUE, n = 2)[, 2]
+
+
+p_bar <- ggplot(data = dist_obs_df %>% mutate(cat_dist = factor(cat_dist, levels = categories)), aes(x = cat_dist, fill = sample)) +
+    geom_bar(stat = "count", position = "dodge") +
+    GBMutils::GBM_theme()
+
+ggsave(p_bar, filename = glue("barplot_bin_contrib_{params$k_neighbors}.pdf"), path = params$output_dir)
+
+log_info("Combine metadata and segmentation masks...")
+dist_obs_sdf <- meta_sdf %>%
+    filter(BANKSY_snn_res.2_annot %in% c("Neuron", "Malignant")) %>%
+    select(id, geometry, BANKSY_snn_res.2_annot) %>%
+    left_join(dist_obs_df %>%
+        filter(sample == params$sample_id)) %>%
+    # Convert to px to microns
+    mutate(
+        vis_label = factor(ifelse(BANKSY_snn_res.2_annot == "Neuron", "Neuron", cat_dist), levels = names(colors))
+    )
+
+p <- ggplot() +
+    geom_sf(data = dist_obs_sdf, aes(fill = vis_label), color = NA) +
+    GBMutils::GBM_theme() +
+    scale_fill_manual(
+        values = colors,
+        guide = guide_legend(override.aes = list(size = 5), title = "Label")
+    ) +
+    coord_sf() +
+    scale_y_reverse() +
+    labs(
+        x = "X (µm)", y = "Y (µm)",
+    ) +
+    theme(aspect.ratio = 1, axis.text = element_blank(), axis.ticks = element_blank())
+
+ggsave(plot = p, filename = glue("{params$sample_id}_dist_gradient_k{params$k_neighbors}.pdf"), path = params$output_dir)
+```
+
+```{r, vis}
+# Load additional libraries
+log_info("Load pseudobulk scores...")
+pseudobulk_scores_df <- readRDS(params$pseudobulk_scores_path)
+# split into observed and shuffled
+obs_df <- pseudobulk_scores_df %>%
+    filter(ix == "cat_dist") %>%
+    mutate(AddModuleScore = as.numeric(AddModuleScore)) %>%
+    rename(AddModuleScore_obs = AddModuleScore) %>%
+    select(-ix)
+
+
+shuffled_df <- pseudobulk_scores_df %>%
+    filter(ix != "cat_dist") %>%
+    mutate(AddModuleScore = as.numeric(AddModuleScore)) %>%
+    rename(AddModuleScore_shuffled = AddModuleScore)
+
+stat_df <- shuffled_df %>%
+    left_join(obs_df)
+
+stat_df_wide <- stat_df %>%
+    pivot_wider(names_from = ix, values_from = AddModuleScore_shuffled) %>%
+    rowwise() %>%
+    mutate(
+        perm_min = min(c_across(starts_with("cat_dist_sid"))),
+        perm_max = max(c_across(starts_with("cat_dist_sid"))),
+        perm_mean = mean(c_across(starts_with("cat_dist_sid"))),
+        perm_median = median(c_across(starts_with("cat_dist_sid"))),
+        perm_sd = sd(c_across(starts_with("cat_dist_sid"))),
+        # Testing hypothesis H0 < H1 (alternative = 'greater')
+        count_larger = sum(c_across(starts_with("cat_dist_sid_")) > AddModuleScore_obs) + 1,
+        # Testing hypothesis H0 > H1 (alternative = 'less')
+        count_smaller = sum(c_across(starts_with("cat_dist_sid_")) < AddModuleScore_obs) + 1,
+        z_score = (AddModuleScore_obs - perm_mean) / perm_sd,
+        interaction_type = ifelse(
+            z_score > 0,
+            "Co-localization",
+            "Avoidance"
+        ),
+        p_value = ifelse(interaction_type == "Co-localization",
+            # Co-localization
+            count_larger / params$n_iter,
+            count_smaller / params$n_iter
+        ),
+        p_value_coloc = count_larger / params$n_iter,
+        p_value_avoid = count_smaller / params$n_iter,
+    )
+
+
+# Define bin names
+categories <- c(
+    paste0("<", params$lower_limit * 100, "%"),
+    # paste0(
+    #     params$lower_limit * 100, "% <= mean distance <= ",
+    #     params$upper_limit * 100, "%"
+    # ),
+    "between",
+    paste0(">", params$upper_limit * 100, "%")
+)
+
+stat_df_wide$p_value_adj <- p.adjust(stat_df_wide$p_value, "bonferroni")
+stat_res_df <- stat_df_wide %>%
+    select(variable, cat_dist, z_score, interaction_type, p_value, p_value_adj) %>%
+    mutate(cat_dist = ifelse(cat_dist == paste0(
+        params$lower_limit * 100, "% <= mean distance <= ",
+        params$upper_limit * 100, "%"
+    ), "between", cat_dist)) %>%
+    mutate(
+        cat_dist = factor(cat_dist, levels = categories),
+        is_significant = p_value < 0.05,
+        is_significant_adj = p_value_adj < 0.05,
+        variable = factor(str_replace_all(variable, "_", "-"), c("Differentiated-like", "Progenitor-like", "Invasive-high OPC/NPC1"))
+    )
+color_labels <- GBMutils::load_color_palette("Divergent_1")
+
+p <- ggplot(data = stat_res_df %>% arrange(variable), aes(x = variable, y = cat_dist, fill = z_score, size = -log10(p_value_adj))) +
+    geom_point(pch = 21, color = "black") +
+    geom_point(data = stat_res_df %>% filter(!is_significant_adj), shape = 4, show.legend = FALSE) +
+    GBMutils::GBM_theme() +
+    scale_fill_gradient2(
+        mid = color_labels[["mid"]], midpoint = 0, low = color_labels[["low"]], high = color_labels[["high"]],
+        breaks = scales::pretty_breaks(),
+        n.breaks = 3
+    ) +
+    labs(
+        subtitle =
+            glue("k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"),
+        x = "Signature", y = "Bin label"
+    ) +
+    guides(
+        fill = guide_colorbar(
+            title.position = "top",
+            title.hjust = 0.5,
+            title = "z-score",
+            barwidth = unit(10, "lines"),
+            barheight = unit(0.9, "lines"),
+        ),
+        size = guide_legend(
+            title.position = "top",
+            title = expression(-log[10](p[adj])),
+            title.hjust = 0.5,
+            label.position = "bottom",
+            nrow = 1,
+            override.aes = list(shape = 19)
+        )
+    ) +
+    theme(
+        legend.key.width = unit(2, "lines"),
+        legend.box = "horizontal"
+    ) +
+    scale_size(range = c(3, 8)) +
+    coord_flip()
+p
+ggsave(plot = p, path = params$output_dir, filename = glue("malign_signature_vs_proximity_k{params$k_neighbors}.pdf"))
+
+log_info("Finished!")
+```
+
+## Session Info
+```{r, session-info, echo = FALSE}
+sessionInfo()
+```

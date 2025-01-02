@@ -1,0 +1,25 @@
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##     GaitiLab/scrnaseq-cellcomm-pipeline 1.0dev
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##     This is an example parameter file to pass to the `-params-file` option
+##     of nextflow run with the GaitiLab/scrnaseq-cellcomm-pipeline pipeline.
+##
+##     Uncomment lines with a single '#' if you want to pass the parameter to
+##     the pipeline.
+## -----------------------------------------------------------------------------
+scrnaseqcellcomm_modules: "prep_data,run_cci,consensus,aggregation,export_as_excel"
+input_file: "/cluster/projects/gaitigroup/Users/Benson/Parsebio/seuratobjects/gbm_regional_study_top_up.rds"
+annot: "CCI_CellClass_L2_2"
+min_cells: 50
+sample_var: "Sample"
+
+min_pct: 0.1
+n_perm: 1000
+condition_var: "Region"
+patient_var: "Patient"
+is_confident: 1
+
+min_patients: 2
+alpha: 0.05
+
+skip_reduction: false

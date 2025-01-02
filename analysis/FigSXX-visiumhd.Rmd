@@ -1,0 +1,642 @@
+---
+title: "Notebook to reproduce Figure XX"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/VisiumHD"
+    sample_id:  "Gaiti_Yiyan__6425_cortex_1_A1"
+    segmentation_masks_path: "data/VisiumHD/processed/6425_cortex_1_A1__masks.json"
+    seurat_obj_path: "data/VisiumHD/processed/6425_cortex_1_A1.rds"
+    output_dir: "output/VisiumHD"
+    k_neighbors: 30
+    pseudobulk_scores_path: "data/VisiumHD/processed/10k/6425_combined_pseudobulk_scores_k30.rds"
+    n_iter: 10000
+    lower_limit: 0.10
+    upper_limit: 0.90
+    scale_factors_path: "/cluster/projects/gaitigroup/Data/GBM_VisiumHD/20240708_LH00244_0121_B22MN7GLT3_Gaiti_Yiyan_Visium"
+    seurat_obj_subset_path: "data/VisiumHD/processed/10k/6425_combined_seurat_obj_meanshortest_k30.rds"
+    DE_markers_scRNAseq: "misc/cci_cellclass_l2_2_markers.csv"
+    top_n: 15
+output: html_document
+---
+
+
+```{r, rmarkdown-setup, include=FALSE}
+knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
+
+
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, sf, rjson, Seurat)
+
+logr <- init_logging()
+
+params <- list()
+params$sample_id <- "Gaiti_Yiyan__6425_cortex_3_D1"
+params$segmentation_masks_path <- glue("data/VisiumHD/processed/{params$sample_id}__masks.json")
+params$seurat_obj_path <- glue("data/VisiumHD/processed/{params$sample_id}.rds")
+params$output_dir <- "output/VisiumHD"
+params$k_neighbors <- 30
+
+params$pseudobulk_scores_path <- glue("data/VisiumHD/processed/10k/6425_combined_pseudobulk_scores_k{params$k_neighbors}.rds")
+params$n_iter <- 10000
+params$lower_limit <- 0.10
+params$upper_limit <- 0.90
+params$scale_factors_path <- glue("/cluster/projects/gaitigroup/Data/GBM_VisiumHD/20240708_LH00244_0121_B22MN7GLT3_Gaiti_Yiyan_Visium")
+params$seurat_obj_subset_path <- glue("data/VisiumHD/processed/10k/6425_combined_seurat_obj_meanshortest_k{params$k_neighbors}.rds")
+params$markers_path <- glue("data/VisiumHD/processed/{params$sample_id}_markers_by_celltype.rds")
+params$DE_markers_scRNAseq <- "misc/cci_cellclass_l2_2_markers.csv"
+params$DE_markers_VisiumHD <- glue("data/VisiumHD/processed/{params$sample_id}_markers_by_celltype.rds")
+params$top_n <- 15
+```
+
+## Expression markers
+```{r}
+log_info("Load color palette...")
+palette <- GBMutils::load_color_palette("Spatial_CellClass_L1")
+
+
+log_info("Load Seurat
+ object...")
+seurat_obj <- readRDS(params$seurat_obj_path)
+```
+```{r}
+log_info("Load scRNAseq DE results...")
+DE_markers_scRNAseq <- read.csv(params$DE_markers_scRNAseq) %>%
+    # Only keep genes that are in the VisiumHD data
+    filter(gene %in% rownames(seurat_obj), cluster != "NoSignals") %>%
+    # Combine cell types -> broader cell type annotation
+    mutate(
+        cluster = case_when(
+            cluster %in% c("Glutamatergic", "GABAergic") ~ "Neuron",
+            cluster %in% c("Endothelial") ~ "BV",
+            cluster %in% c("Differentiated_like", "Invasive-high OPC/NPC1", "Progenitor_like") ~ "Malignant",
+            cluster %in% c("Myeloid_Inflammatory", "Myeloid_Immunosuppressive") ~ "Myeloid",
+            .default = cluster
+        ),
+        p_val_adj = ifelse(p_val_adj == 0, .Machine$double.xmin, p_val_adj),
+        score = -log10(p_val_adj) * avg_log2FC
+    ) %>%
+    select(-X)
+
+log_info("Load VisiumHD DE results...")
+DE_visiumHD_markers <- readRDS(params$DE_markers_VisiumHD) %>%
+    remove_rownames() %>%
+    mutate(
+        p_val_adj = ifelse(p_val_adj == 0, .Machine$double.xmin, p_val_adj),
+        score = -log10(p_val_adj) * avg_log2FC
+    )
+```
+
+
+
+## OPTION 1
+```{r}
+log_info("Extract cell type markers for cell types of interest...")
+# ---- OPTION 1: assign gene to cell type based on -log10(p-adj) x avglog2FC ----
+scRNAseq_markers <- DE_markers_scRNAseq %>%
+    # Manual filtering
+    dplyr::filter(avg_log2FC > log2(1.5), p_val_adj < 0.05) %>%
+    # Force genes to only occur once (based on -log10(p-adj) * avg_log2FC)
+    arrange(desc(score)) %>%
+    distinct(gene, .keep_all = TRUE)
+
+scRNAseq_markers %>% count(cluster)
+
+visiumHD_markers <- DE_visiumHD_markers %>%
+    arrange(desc(score)) %>%
+    dplyr::filter(avg_log2FC > log2(1.5), p_val_adj < 0.05) %>%
+    arrange(desc(score)) %>%
+    distinct(gene, .keep_all = TRUE)
+
+# visiumHD_markers %>% count(cluster)
+
+# ---- Final filtering ----
+scRNAseq_markers <- scRNAseq_markers %>%
+    group_by(cluster) %>%
+    # Select top-15 genes as markers for each cell type
+    slice_max(order_by = score, n = params$top_n) %>%
+    ungroup() %>%
+    arrange(cluster)
+
+visiumHD_markers <- visiumHD_markers %>%
+    group_by(cluster) %>%
+    # Select top-15 genes as markers for each cell type
+    # slice_max(order_by = score, n = params$top_n) %>%
+    ungroup() %>%
+    arrange(cluster)
+
+
+common_markers <- visiumHD_markers %>%
+    # Annotate visiumHD markers using the selected scRNAseq markers
+    left_join(scRNAseq_markers, by = c("cluster", "gene")) %>%
+    # Only keep visiumHD genes that are annotated based on cluster (cell type) and gene
+    filter(!is.na(p_val_adj.y)) %>%
+    mutate(cluster = factor(cluster, seurat_obj$BANKSY_snn_res.2_annot %>% unique() %>% sort())) %>%
+    arrange(cluster) %>%
+    # Remove 'Malignant markers'
+    filter(cluster != "Malignant")
+common_markers %>% count(cluster)
+
+p <- DotPlot(seurat_obj,
+    features = common_markers %>% group_by(cluster) %>%
+        # Select top-15 genes as markers for each cell type
+        slice_max(order_by = score.x, n = 3) %>%
+        ungroup() %>%
+        arrange(cluster) %>% pull(gene) %>% unique(),
+    group.by = "BANKSY_snn_res.2_annot", dot.scale = 12,
+    assay = "RNA", scale = TRUE
+) +
+    RotatedAxis()
+
+ggsave(p, filename = glue("{params$sample_id}__celltypemarkers_top{params$top_n}_dot_option1.pdf"), path = params$output_dir)
+
+log_info("Set default assay")
+DefaultAssay(seurat_obj) <- "RNA"
+Idents(seurat_obj) <- "BANKSY_snn_res.2_annot"
+print(seurat_obj)
+
+log_info("Compute average expression...")
+
+common_markers_top_15 <- common_markers %>%
+    group_by(cluster) %>%
+    # Select top-15 genes as markers for each cell type
+    slice_max(order_by = score.x, n = 15) %>%
+    ungroup() %>%
+    filter(cluster != "Malignant")
+
+# Use standardized data
+seurat_obj <- ScaleData(seurat_obj, features = common_markers_top_15$gene, assay = "RNA")
+avg_exp <- AverageExpression(seurat_obj,
+    features = common_markers_top_15$gene,
+    layer = "scale.data", assay = "RNA"
+)[["RNA"]] %>%
+    data.frame() %>%
+    rownames_to_column("gene")
+
+log_info("Annotate genes in VisiumHD using the cell type markers from scRNAseq...")
+df <- avg_exp %>%
+    left_join(common_markers_top_15 %>% rename(label = cluster) %>% select(label, gene)) %>%
+    filter(!is.na(label)) %>%
+    arrange(label)
+
+top_annot_df <- df %>% select(gene, label)
+
+mat <- df %>%
+    select(-c(
+        label
+    )) %>%
+    t()
+
+colnames(mat) <- mat[1, ]
+mat <- mat[2:nrow(mat), ]
+mat <- mat %>% data.matrix()
+old_rownames <- rownames(mat)
+
+mat <- apply(mat, 2, as.numeric, simplify = TRUE)
+rownames(mat) <- old_rownames
+
+# Setup legend for ComplexHeatmap
+legend_min <- plyr::round_any(min(mat), 0.5, round)
+legend_mid <- 0
+legend_max <- plyr::round_any(max(mat), 0.5, round)
+limit <- max(abs(c(legend_min, legend_max)))
+
+
+# legend_min <- plyr::round_any(quantile(mat, 0.05), 0.5, round)
+# legend_mid <- 0
+# legend_max <- plyr::round_any(quantile(mat, 0.95), 0.5, round)
+# limit <- max(abs(c(legend_min, legend_max)))
+
+# Clipping values
+# mat[mat < quantile(mat, 0.05)] <- -limit
+# mat[mat > quantile(mat, 0.95)] <- limit
+
+# Setup colors
+col_fun <- circlize::colorRamp2(
+    # Values
+    c(-limit, legend_mid, limit),
+    # Colors
+    GBMutils::load_color_palette("Divergent_1")
+)
+
+lgd <- ComplexHeatmap::Legend(
+    col_fun = col_fun,
+    title = "Mean scaled\nexpression",
+    direction = "horizontal",
+)
+lgd_list <- list(lgd)
+
+
+# Setup gene annotation categories (labels from annotation file)
+top_annot <- ComplexHeatmap::HeatmapAnnotation(
+    Label = top_annot_df %>% pull(label),
+    col = list(
+        Label = palette[!is.na(names(palette))]
+    ),
+    annotation_legend_param = list(
+        Label = list(
+            direction = ifelse(!is.null(top_n), "horizontal", "vertical"),
+            ncol = top_annot_df %>%
+                pull(label) %>%
+                unique() %>% length(),
+            nrow = 3
+        )
+    )
+)
+
+# Determine order of columns (cluster genes within each cell type)
+dend <- ComplexHeatmap::cluster_within_group(mat, as.character(top_annot_df$label))
+# Use the same order to order the rows
+mat <- mat[c(unique(as.character(top_annot_df$label)[order.dendrogram(dend)]), "Malignant", "Undetermined"), ]
+
+log_info("Create heatmap...")
+hm <- GaitiLabUtils::create_hm(mat,
+    cell_width = 5,
+    cell_height = 5,
+    show_column_names = TRUE,
+    show_row_names = TRUE,
+    col = col_fun,
+    column_split = top_annot_df %>% pull(label) %>% unique() %>% length(),
+    # Font sizes
+    row_names_gp = grid::gpar(fontsize = 12),
+    column_names_gp = grid::gpar(fontsize = 8),
+    column_title_gp = grid::gpar(fontsize = 12),
+    # Dendrograms
+    show_row_dend = TRUE,
+    show_column_dend = TRUE,
+
+    # Clustering
+    cluster_rows = FALSE,
+    cluster_columns = dend,
+    show_heatmap_legend = FALSE,
+    row_title = "Cluster",
+    name = "Mean scaled expression",
+
+    # Annotations
+    top_annotation = top_annot,
+    column_title_rot = 45
+)
+
+R.devices::suppressGraphics({
+    # Save heatmap
+    GaitiLabUtils::save_hm(
+        hm_obj = hm,
+        output_file = file.path(
+            params$output_dir,
+            glue("{params$sample_id}__celltypemarkers_top{params$top_n}_option1.pdf")
+        ),
+        heatmap_legend_side = "bottom", annotation_legend_side = "bottom",
+        merge_legend = TRUE, heatmap_legend_list = lgd_list
+    )
+})
+```
+
+## OPTION 2
+```{r}
+log_info("Extract cell type markers for cell types of interest...")
+# ---- OPTION 2: remove genes that occur multiple times ----
+scRNAseq_markers <- DE_markers_scRNAseq %>%
+    # Manual filtering
+    dplyr::filter(avg_log2FC > log2(1.5), p_val_adj < 0.05)
+
+duplicated_scRNAseq_DE_markers <- scRNAseq_markers$gene[duplicated(scRNAseq_markers$gene)]
+
+scRNAseq_markers <- scRNAseq_markers %>%
+    # Remove genes that occur for multiple cell types
+    filter(!(gene %in% duplicated_scRNAseq_DE_markers))
+
+visiumHD_markers <- DE_visiumHD_markers %>%
+    # Manual filtering
+    dplyr::filter(avg_log2FC > log2(1.5), p_val_adj < 0.05)
+
+duplicated_visiumHD_DE_markers <- visiumHD_markers$gene[duplicated(visiumHD_markers$gene)]
+
+visiumHD_markers <- visiumHD_markers %>%
+    # Remove genes that occur for multiple cell types
+    filter(!(gene %in% duplicated_visiumHD_DE_markers))
+
+# ---- Final filtering ----
+scRNAseq_markers <- scRNAseq_markers %>%
+    group_by(cluster) %>%
+    # Select top-15 genes as markers for each cell type
+    slice_max(order_by = score, n = params$top_n) %>%
+    ungroup() %>%
+    arrange(cluster)
+
+visiumHD_markers <- visiumHD_markers %>%
+    group_by(cluster) %>%
+    # Select top-15 genes as markers for each cell type
+    # slice_max(order_by = score, n = params$top_n) %>%
+    ungroup() %>%
+    arrange(cluster)
+
+
+common_markers <- visiumHD_markers %>%
+    # Annotate visiumHD markers using the selected scRNAseq markers
+    left_join(scRNAseq_markers, by = c("cluster", "gene")) %>%
+    # Only keep visiumHD genes that are annotated based on cluster (cell type) and gene
+    filter(!is.na(p_val_adj.y)) %>%
+    mutate(cluster = factor(cluster, seurat_obj$BANKSY_snn_res.2_annot %>% unique() %>% sort())) %>%
+    arrange(cluster)
+# Remove 'Malignant markers'
+# filter(cluster != "Malignant")
+common_markers %>% count(cluster)
+
+p <- DotPlot(seurat_obj,
+    features = common_markers %>% group_by(cluster) %>%
+        # Select top-15 genes as markers for each cell type
+        slice_max(order_by = score.x, n = 3) %>%
+        ungroup() %>%
+        arrange(cluster) %>% pull(gene) %>% unique(),
+    group.by = "BANKSY_snn_res.2_annot", dot.scale = 12,
+    assay = "RNA", scale = TRUE
+) +
+    RotatedAxis()
+
+ggsave(p, filename = glue("{params$sample_id}__celltypemarkers_top{params$top_n}_dot_option2.pdf"), path = params$output_dir)
+
+
+log_info("Set default assay")
+DefaultAssay(seurat_obj) <- "RNA"
+Idents(seurat_obj) <- "BANKSY_snn_res.2_annot"
+print(seurat_obj)
+
+log_info("Compute average expression...")
+
+common_markers_top_15 <- common_markers %>%
+    group_by(cluster) %>%
+    # Select top-15 genes as markers for each cell type
+    slice_max(order_by = score.x, n = 15) %>%
+    ungroup() %>%
+    filter(cluster != "Malignant")
+
+# Use standardized data
+seurat_obj <- ScaleData(seurat_obj, features = common_markers_top_15$gene, assay = "RNA")
+avg_exp <- AverageExpression(seurat_obj,
+    features = common_markers_top_15$gene,
+    layer = "scale.data", assay = "RNA"
+)[["RNA"]] %>%
+    data.frame() %>%
+    rownames_to_column("gene")
+
+log_info("Annotate genes in VisiumHD using the cell type markers from scRNAseq...")
+df <- avg_exp %>%
+    left_join(common_markers_top_15 %>% rename(label = cluster) %>% select(label, gene)) %>%
+    filter(!is.na(label)) %>%
+    arrange(label)
+
+top_annot_df <- df %>% select(gene, label)
+
+mat <- df %>%
+    select(-c(
+        label
+    )) %>%
+    t()
+
+colnames(mat) <- mat[1, ]
+mat <- mat[2:nrow(mat), ]
+mat <- mat %>% data.matrix()
+old_rownames <- rownames(mat)
+
+mat <- apply(mat, 2, as.numeric, simplify = TRUE)
+rownames(mat) <- old_rownames
+
+# Setup legend for ComplexHeatmap
+legend_min <- plyr::round_any(min(mat), 0.5, round)
+legend_mid <- 0
+legend_max <- plyr::round_any(max(mat), 0.5, round)
+limit <- max(abs(c(legend_min, legend_max)))
+
+
+# legend_min <- plyr::round_any(quantile(mat, 0.05), 0.5, round)
+# legend_mid <- 0
+# legend_max <- plyr::round_any(quantile(mat, 0.95), 0.5, round)
+# limit <- max(abs(c(legend_min, legend_max)))
+
+# Clipping values
+# mat[mat < quantile(mat, 0.05)] <- -limit
+# mat[mat > quantile(mat, 0.95)] <- limit
+
+# Setup colors
+col_fun <- circlize::colorRamp2(
+    # Values
+    c(-limit, legend_mid, limit),
+    # Colors
+    GBMutils::load_color_palette("Divergent_1")
+)
+
+lgd <- ComplexHeatmap::Legend(
+    col_fun = col_fun,
+    title = "Mean scaled\nexpression",
+    direction = "horizontal",
+)
+lgd_list <- list(lgd)
+
+
+# Setup gene annotation categories (labels from annotation file)
+top_annot <- ComplexHeatmap::HeatmapAnnotation(
+    Label = top_annot_df %>% pull(label),
+    col = list(
+        Label = palette[!is.na(names(palette))]
+    ),
+    annotation_legend_param = list(
+        Label = list(
+            direction = ifelse(!is.null(top_n), "horizontal", "vertical"),
+            ncol = top_annot_df %>%
+                pull(label) %>%
+                unique() %>% length(),
+            nrow = 3
+        )
+    )
+)
+
+# Determine order of columns (cluster genes within each cell type)
+dend <- ComplexHeatmap::cluster_within_group(mat, as.character(top_annot_df$label))
+# Use the same order to order the rows
+mat <- mat[c(unique(as.character(top_annot_df$label)[order.dendrogram(dend)]), "Malignant", "Undetermined"), ]
+
+log_info("Create heatmap...")
+hm <- GaitiLabUtils::create_hm(mat,
+    cell_width = 5,
+    cell_height = 5,
+    show_column_names = TRUE,
+    show_row_names = TRUE,
+    col = col_fun,
+    column_split = top_annot_df %>% pull(label) %>% unique() %>% length(),
+    # Font sizes
+    row_names_gp = grid::gpar(fontsize = 12),
+    column_names_gp = grid::gpar(fontsize = 8),
+    column_title_gp = grid::gpar(fontsize = 12),
+    # Dendrograms
+    show_row_dend = TRUE,
+    show_column_dend = TRUE,
+
+    # Clustering
+    cluster_rows = FALSE,
+    cluster_columns = dend,
+    show_heatmap_legend = FALSE,
+    row_title = "Cluster",
+    name = "Mean scaled expression",
+
+    # Annotations
+    top_annotation = top_annot,
+    column_title_rot = 45
+)
+
+R.devices::suppressGraphics({
+    # Save heatmap
+    GaitiLabUtils::save_hm(
+        hm_obj = hm,
+        output_file = file.path(
+            params$output_dir,
+            glue("{params$sample_id}__celltypemarkers_top{params$top_n}_option2.pdf")
+        ),
+        heatmap_legend_side = "bottom", annotation_legend_side = "bottom",
+        merge_legend = TRUE, heatmap_legend_list = lgd_list
+    )
+})
+```
+
+
+## Spatial cell type distribution
+```{r, spatial-cell-type-distribution}
+# Setup color palette
+log_info("Load color palette...")
+palette <- GBMutils::load_color_palette("Spatial_CellClass_L1")
+
+params_tmp <- list()
+for (current_sample_id in c("Gaiti_Yiyan__6425_cortex_3_D1", "Gaiti_Yiyan__6425_cortex_1_A1")) {
+    log_info(glue("Current sample: {current_sample_id}..."))
+    params_tmp$segmentation_masks_path <- glue("data/VisiumHD/processed/{current_sample_id}__masks.json")
+    params_tmp$seurat_obj_path <- glue("data/VisiumHD/processed/{current_sample_id}.rds")
+    params_tmp$scale_factors_path <- glue("{params$scale_factors_path}/{current_sample_id}/outs/binned_outputs/square_002um/spatial/scalefactors_json.json")
+
+
+    log_info("Load scalefactors...")
+    scalefactors <-
+        fromJSON(file = params_tmp$scale_factors_path)
+
+    log_info("Load segmentation masks...")
+    gdf <- read_sf(params_tmp$segmentation_masks_path) %>% mutate(geometry_px = geometry)
+    # Remove coordinate systems, just want to use cartesian system
+    st_crs(gdf) <- NA
+
+    log_info("Load Seurat object...")
+    seurat_obj <- readRDS(params_tmp$seurat_obj_path)
+
+    log_info("Combine metadata and segmentation masks...")
+    meta_sdf <- sf::st_as_sf(
+        (seurat_obj@meta.data) %>%
+            left_join(gdf, by = "id")
+    ) %>%
+        # Convert to px to microns
+        mutate(geometry = geometry_px * scalefactors$microns_per_pixel)
+
+    p <- ggplot(meta_sdf) +
+        geom_sf(aes(fill = BANKSY_snn_res.2_annot), color = NA) +
+        GBMutils::GBM_theme() +
+        scale_fill_manual(
+            values = GBMutils::load_color_palette("Spatial_CellClass_L1"),
+            guide = guide_legend(override.aes = list(size = 5), title = "Cell type")
+        ) +
+        coord_sf() +
+        scale_y_reverse() +
+        labs(
+            x = "X (µm)", y = "Y (µm)", subtitle = paste0("No. cells=", prettyNum(nrow(meta_sdf), big.mark = ","))
+        ) +
+        theme(aspect.ratio = 1, axis.text = element_blank(), axis.ticks = element_blank())
+
+    ggsave(plot = p, filename = glue("FigSXX-{current_sample_id}_spatial.pdf"), path = params$output_dir, width = 8, height = 8)
+
+    ncells_by_celltype <- meta_sdf %>%
+        count(BANKSY_snn_res.2_annot) %>%
+        mutate(label = paste0("No. cells=", prettyNum(n, big.mark = ",")))
+
+    # Plot by cell type
+    p <- ggplot(meta_sdf) +
+        geom_sf(aes(fill = BANKSY_snn_res.2_annot), color = NA) +
+        GBMutils::GBM_theme() +
+        ggh4x::facet_wrap2(. ~ BANKSY_snn_res.2_annot, axes = "all") +
+        scale_fill_manual(
+            values = GBMutils::load_color_palette("Spatial_CellClass_L1"),
+            guide = guide_legend(override.aes = list(size = 5), title = "Cell type")
+        ) +
+        geom_sf_text(
+            data = ncells_by_celltype, x = -Inf, y = Inf, aes(label = label),
+            hjust = -0.1, vjust = 1.2, size = 3
+        ) +
+        coord_sf() +
+        scale_y_reverse() +
+        labs(
+            x = "X (µm)", y = "Y (µm)",
+        ) +
+        theme(aspect.ratio = 1, axis.text = element_blank(), axis.ticks = element_blank())
+
+    ggsave(plot = p, filename = glue("FigSXX-{current_sample_id}_spatial_by_celltype.pdf"), path = params$output_dir, width = 10, height = 10)
+}
+```
+
+## Relationship proximity Malignant cells - Neurons and subtype signatures
+
+```{r,  neuron-malignant-discretized-distances}
+# Define bin names
+categories <- c(
+    paste0("<", params$lower_limit * 100, "%"),
+    "between",
+    paste0(">", params$upper_limit * 100, "%")
+)
+
+color_gradient <- setNames(RColorBrewer::brewer.pal(n = 8, name = "Blues")[c(3, 5, 8)], categories)
+
+colors <- c(palette["Neuron"], color_gradient)
+
+log_info("Load Seurat object subset...")
+seurat_obj_subset <- readRDS(params$seurat_obj_subset_path)
+
+dist_obs_df <- seurat_obj_subset@meta.data %>%
+    mutate(
+        sample = case_when(
+            sample == "PT1" ~ "Gaiti_Yiyan__6425_cortex_1_A1",
+            sample == "PT3" ~ "Gaiti_Yiyan__6425_cortex_3_D1",
+        ),
+        cat_dist = ifelse(cat_dist == paste0(
+            params$lower_limit * 100, "% <= mean distance <= ",
+            params$upper_limit * 100, "%"
+        ), "between", cat_dist),
+    ) %>%
+    filter(sample == params$sample_id) %>%
+    select(sample, id, cat_dist, mean_dist, BANKSY_snn_res.2_annot) %>%
+    remove_rownames()
+dist_obs_df$id <- str_split(dist_obs_df$id, "_", simplify = TRUE, n = 2)[, 2]
+
+log_info("Combine metadata and segmentation masks...")
+dist_obs_sdf <- meta_sdf %>%
+    filter(BANKSY_snn_res.2_annot %in% c("Neuron", "Malignant")) %>%
+    select(id, geometry, BANKSY_snn_res.2_annot) %>%
+    left_join(dist_obs_df) %>%
+    # Convert to px to microns
+    mutate(
+        vis_label = factor(ifelse(BANKSY_snn_res.2_annot == "Neuron", "Neuron", cat_dist), levels = names(colors))
+    )
+
+
+p <- ggplot() +
+    geom_sf(data = dist_obs_sdf, aes(fill = vis_label), color = NA) +
+    GBMutils::GBM_theme() +
+    scale_fill_manual(
+        values = colors,
+        guide = guide_legend(override.aes = list(size = 5), title = "Label")
+    ) +
+    coord_sf() +
+    scale_y_reverse() +
+    labs(
+        x = "X (µm)", y = "Y (µm)",
+    ) +
+    theme(aspect.ratio = 1, axis.text = element_blank(), axis.ticks = element_blank())
+
+ggsave(plot = p, filename = glue("FigSXX-{params$sample_id}_dist_binned_k{params$k_neighbors}.pdf"), path = params$output_dir)
+```
+
+## Session Info
+```{r, session-info, echo = FALSE}
+sessionInfo()
+```

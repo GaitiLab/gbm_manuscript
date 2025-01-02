@@ -352,7 +352,7 @@ display: none;
 <h1 class="title toc-ignore">Notebook to reproduce Figure S5c
 (right)</h1>
 <h4 class="author">Joan Kant</h4>
-<h4 class="date">Last compiled on 25 August, 2024</h4>
+<h4 class="date">Last compiled on 26 November, 2024</h4>
 
 </div>
 
@@ -412,7 +412,7 @@ detected_interactions &lt;- readRDS(params$interactions) %&gt;%
 
 ggsave(
     plot = p,
-    filename = glue(&quot;{params$output_dir}/rank_plot_{source_target_oi_formatted}_in_{params$region_oi}.pdf&quot;), height = 10, width = 10
+    filename = file.path(params$output_dir, glue(&quot;rank_plot_{source_target_oi_formatted}_in_{params$region_oi}.pdf&quot;)), height = 10, width = 10
 )</code></pre>
 </div>
 <div id="session-info" class="section level2">
@@ -433,70 +433,46 @@ ggsave(
 ## [11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
 ## 
 ## attached base packages:
-## [1] grid      stats     graphics  grDevices utils     datasets  methods  
-## [8] base     
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-##  [1] ggtext_0.1.2             ggrastr_1.0.2            readxl_1.4.3            
-##  [4] R.devices_2.17.2         ComplexHeatmap_2.14.0    GBMutils_0.0.0.9000     
-##  [7] lubridate_1.9.3          forcats_1.0.0            stringr_1.5.1           
-## [10] dplyr_1.1.4              purrr_1.0.2              readr_2.1.5             
-## [13] tidyr_1.3.1              tibble_3.2.1             ggplot2_3.5.1           
-## [16] tidyverse_2.0.0          data.table_1.15.4        glue_1.7.0              
-## [19] GaitiLabUtils_0.0.0.9000 MASS_7.3-60             
+##  [1] Matrix_1.6-5        ggtext_0.1.2        ggrastr_1.0.2      
+##  [4] readxl_1.4.3        GBMutils_1.1.2      lubridate_1.9.3    
+##  [7] forcats_1.0.0       stringr_1.5.1       dplyr_1.1.4        
+## [10] purrr_1.0.2         readr_2.1.5         tidyr_1.3.1        
+## [13] tibble_3.2.1        ggplot2_3.5.1       tidyverse_2.0.0    
+## [16] data.table_1.15.4   glue_1.7.0          GaitiLabUtils_1.0.2
+## [19] MASS_7.3-60        
 ## 
 ## loaded via a namespace (and not attached):
-##   [1] pacman_0.5.1           utf8_1.2.4             spatstat.explore_3.2-7
-##   [4] reticulate_1.37.0      R.utils_2.12.2         tidyselect_1.2.1      
-##   [7] htmlwidgets_1.6.4      Rtsne_0.17             munsell_0.5.1         
-##  [10] ragg_1.2.5             codetools_0.2-20       ica_1.0-3             
-##  [13] future_1.33.2          miniUI_0.1.1.1         withr_3.0.0           
-##  [16] argparse_2.2.3         spatstat.random_3.2-3  colorspace_2.1-0      
-##  [19] progressr_0.14.0       highr_0.11             knitr_1.47            
-##  [22] Seurat_5.1.0           stats4_4.2.2           ROCR_1.0-11           
-##  [25] tensor_1.5             listenv_0.9.1          labeling_0.4.3        
-##  [28] polyclip_1.10-6        farver_2.1.2           rprojroot_2.0.4       
-##  [31] parallelly_1.37.1      vctrs_0.6.5            generics_0.1.3        
-##  [34] xfun_0.44              ggthemes_5.1.0         timechange_0.3.0      
-##  [37] markdown_1.12          R6_2.5.1               doParallel_1.0.17     
-##  [40] ggbeeswarm_0.7.2       clue_0.3-65            spatstat.utils_3.0-4  
-##  [43] cachem_1.1.0           promises_1.3.0         scales_1.3.0          
-##  [46] beeswarm_0.4.0         gtable_0.3.5           Cairo_1.6-2           
-##  [49] globals_0.16.3         goftest_1.2-3          log4r_0.4.3           
-##  [52] spam_2.10-0            rlang_1.1.3            systemfonts_1.1.0     
-##  [55] GlobalOptions_0.1.2    splines_4.2.2          lazyeval_0.2.2        
-##  [58] spatstat.geom_3.2-9    yaml_2.3.8             reshape2_1.4.4        
-##  [61] abind_1.4-5            httpuv_1.6.15          gridtext_0.1.5        
-##  [64] tools_4.2.2            jquerylib_0.1.4        RColorBrewer_1.1-3    
-##  [67] BiocGenerics_0.44.0    ggridges_0.5.6         Rcpp_1.0.12           
-##  [70] plyr_1.8.9             base64enc_0.1-3        deldir_2.0-4          
-##  [73] pbapply_1.7-2          GetoptLong_1.0.5       cowplot_1.1.3         
-##  [76] S4Vectors_0.36.2       zoo_1.8-12             ggh4x_0.2.8.9000      
-##  [79] SeuratObject_5.0.2     ggrepel_0.9.5          cluster_2.1.6         
-##  [82] here_1.0.1             magrittr_2.0.3         RSpectra_0.16-1       
-##  [85] scattermore_1.2        circlize_0.4.16        lmtest_0.9-40         
-##  [88] RANN_2.6.1             ggnewscale_0.4.10      fitdistrplus_1.1-11   
-##  [91] matrixStats_1.3.0      hms_1.1.3              patchwork_1.2.0       
-##  [94] mime_0.12              evaluate_0.23          xtable_1.8-4          
-##  [97] fastDummies_1.7.3      IRanges_2.32.0         gridExtra_2.3         
-## [100] shape_1.4.6.1          compiler_4.2.2         KernSmooth_2.23-22    
-## [103] crayon_1.5.2           R.oo_1.26.0            htmltools_0.5.8.1     
-## [106] later_1.3.2            tzdb_0.4.0             Matrix_1.6-5          
-## [109] cli_3.6.2              R.methodsS3_1.8.2      parallel_4.2.2        
-## [112] dotCall64_1.1-1        igraph_2.0.3           pkgconfig_2.0.3       
-## [115] sp_2.1-4               plotly_4.10.4          spatstat.sparse_3.0-3 
-## [118] xml2_1.3.6             foreach_1.5.2          vipor_0.4.7           
-## [121] bslib_0.7.0            digest_0.6.35          findpython_1.0.8      
-## [124] sctransform_0.4.1      RcppAnnoy_0.0.22       spatstat.data_3.0-4   
-## [127] rmarkdown_2.27         cellranger_1.1.0       leiden_0.4.3.1        
-## [130] uwot_0.2.2             commonmark_1.9.1       shiny_1.8.1.1         
-## [133] rjson_0.2.21           lifecycle_1.0.4        nlme_3.1-164          
-## [136] jsonlite_1.8.8         viridisLite_0.4.2      fansi_1.0.6           
-## [139] pillar_1.9.0           lattice_0.22-6         fastmap_1.2.0         
-## [142] httr_1.4.7             survival_3.5-8         png_0.1-8             
-## [145] iterators_1.0.14       stringi_1.8.4          sass_0.4.9            
-## [148] textshaping_0.4.0      RcppHNSW_0.6.0         irlba_2.3.5.1         
-## [151] future.apply_1.11.2</code></pre>
+##  [1] matrixStats_1.3.0     doParallel_1.0.17     RColorBrewer_1.1-3   
+##  [4] rprojroot_2.0.4       tools_4.2.2           bslib_0.7.0          
+##  [7] utf8_1.2.4            R6_2.5.1              vipor_0.4.7          
+## [10] BiocGenerics_0.44.0   colorspace_2.1-0      GetoptLong_1.0.5     
+## [13] withr_3.0.0           tidyselect_1.2.1      compiler_4.2.2       
+## [16] textshaping_0.4.0     cli_3.6.2             argparse_2.2.3       
+## [19] pacman_0.5.1          Cairo_1.6-2           xml2_1.3.6           
+## [22] labeling_0.4.3        sass_0.4.9            scales_1.3.0         
+## [25] systemfonts_1.1.0     commonmark_1.9.1      digest_0.6.35        
+## [28] rmarkdown_2.27        pkgconfig_2.0.3       htmltools_0.5.8.1    
+## [31] highr_0.11            fastmap_1.2.0         rlang_1.1.3          
+## [34] GlobalOptions_0.1.2   ggthemes_5.1.0        farver_2.1.2         
+## [37] shape_1.4.6.1         jquerylib_0.1.4       generics_0.1.3       
+## [40] jsonlite_1.8.8        magrittr_2.0.3        Rcpp_1.0.12          
+## [43] ggbeeswarm_0.7.2      munsell_0.5.1         S4Vectors_0.36.2     
+## [46] fansi_1.0.6           ggnewscale_0.4.10     lifecycle_1.0.4      
+## [49] stringi_1.8.4         yaml_2.3.8            grid_4.2.2           
+## [52] ggrepel_0.9.5         parallel_4.2.2        crayon_1.5.2         
+## [55] lattice_0.22-6        gridtext_0.1.5        circlize_0.4.16      
+## [58] findpython_1.0.8      hms_1.1.3             knitr_1.47           
+## [61] ComplexHeatmap_2.14.0 pillar_1.9.0          rjson_0.2.21         
+## [64] log4r_0.4.3           markdown_1.12         codetools_0.2-20     
+## [67] stats4_4.2.2          evaluate_0.23         png_0.1-8            
+## [70] vctrs_0.6.5           tzdb_0.4.0            foreach_1.5.2        
+## [73] cellranger_1.1.0      gtable_0.3.5          clue_0.3-65          
+## [76] cachem_1.1.0          xfun_0.44             ragg_1.2.5           
+## [79] iterators_1.0.14      beeswarm_0.4.0        IRanges_2.32.0       
+## [82] cluster_2.1.6         timechange_0.3.0      here_1.0.1</code></pre>
 </div>
 
 

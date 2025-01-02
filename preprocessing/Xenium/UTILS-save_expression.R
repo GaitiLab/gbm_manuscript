@@ -19,7 +19,7 @@ if (!interactive()) {
     parser$add_argument("--layer", type = "character", help = "Layer to use", default = "counts")
     parser$add_argument("--sample_id", type = "character", help = "Sample ID", default = NULL)
     args <- parser$parse_args()
-} 
+}
 
 # Set up logging
 logr <- init_logging(log_level = args$log_level)

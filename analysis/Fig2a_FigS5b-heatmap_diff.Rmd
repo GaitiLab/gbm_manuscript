@@ -4,7 +4,7 @@ date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Joan Kant"
 params:
     output_dir: "output/cci_scRNAseq"
-    interactions: "data/cci_scRNAseq/402c_filtering_aggregated_res.rds"
+    interactions: "preprocessing/scRNAseq/CCI_CellClass_L2_2/output/402_aggregation_and_filtering/402c_filtering_aggregated_res.rds"
     condition_varname: "Region"
     group1: "PT"
     group2: "TC"
@@ -27,7 +27,7 @@ color_group2 <- GBMutils::load_color_palette("Region")[[params$group2]]
 # Setup celltype categories/labels
 celltype_levels <- names(GBMutils::load_color_palette("CCI_CellClass_L2_2"))
 malign <- celltype_levels[1:3]
-tme_oi <- c("Myeloid_Inflammatory", "Myeloid_Immunosuppressive", "Neuron")
+tme_oi <- c("Myeloid_Inflammatory", "Myeloid_Immunosuppressive", "GABAergic", "Glutamatergic", "Neuron")
 tme_other <- setdiff(celltype_levels, c(malign, tme_oi))
 celltype_levels <- c(malign, tme_oi, tme_other)
 label_levels <- c("Tumor", "TME\nof interest", "TME")
@@ -137,7 +137,7 @@ hm <- create_hm(
 draw(hm)
 
 R.devices::suppressGraphics({
-    save_hm(hm_obj = hm, output_file = glue("{params$output_dir}/Fig2a-heatmap__diff_undirected.pdf"))
+    save_hm(hm_obj = hm, output_file = file.path(params$output_dir, glue("Fig2a-heatmap__diff_undirected.pdf")))
 })
 ```
 
@@ -164,7 +164,7 @@ hm <- create_hm(
 draw(hm)
 
 R.devices::suppressGraphics({
-    save_hm(hm_obj = hm, output_file = glue("{params$output_dir}/FigS5b-heatmap__diff_undirected_w_annot.pdf"))
+    save_hm(hm_obj = hm, output_file = file.path(params$output_dir, glue("FigS5b-heatmap__diff_undirected_w_annot.pdf")))
 })
 ```
 

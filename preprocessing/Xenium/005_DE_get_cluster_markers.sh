@@ -12,17 +12,17 @@
 #SBATCH --error=slurm_out/%x_%A.out
 
 sample_id="6509_A"
-input_file="${PWD}/data/Xenium/processed/6509_A__BANKSY.rds"
-output_dir="${PWD}/data/Xenium/processed"
+input_file="${PWD}/data/Xenium/processed/6509_A__BANKSY__annot_w_expr_counts__ROI.rds"
+output_dir="${PWD}/data/Xenium/processed/SecondSubmission"
 
 # Please do not change when trying to regenerate the figures
-cluster_label="BANKSY_snn_res.0.5"
+cluster_label="cell_type"
 assay="SCT"
 
 echo "Activating conda environment..."
 source "$CONDA_PREFIX/bin/activate" "r-4.3.3"
 
-Rscript ${PWD}/preprocessing/Xenium/004_DE_get_cluster_markers.R \
+Rscript ${PWD}/preprocessing/Xenium/005_DE_get_cluster_markers.R \
     --input_file ${input_file} \
     --output_dir ${output_dir} \
     --cluster_label $cluster_label \
