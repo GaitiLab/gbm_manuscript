@@ -4,8 +4,8 @@ date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Yiyan Wu"
 params:
     output_dir: "output"
-    region_auc_activator_mtx: "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv"
-    TFs_to_label: "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/Plots/all_regions/Filtered_TFs/TFs_to_label.csv"
+    region_auc_activator_mtx: "data/region_auc_activator_mtx.csv"
+    TFs_to_label: "data/TFs_to_label.csv"
 output: html_document
 ---
 
@@ -16,13 +16,7 @@ knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 
 ## Prepare data
 ```{r, prep-data}
-library(ComplexHeatmap)
-library(data.table)
-library(dplyr)
-library(circlize)
-library(viridis)
-
-GaitiLabUtils::create_dir(params$output_dir)
+pacman::p_load(ComplexHeatmap, data.table, dplyr, circlize, viridis)
 
 # Load your data
 matrix_data <- fread(params$region_auc_activator_mtx)
@@ -44,8 +38,8 @@ scaled_matrix <- t(apply(matrix_data, 1, scale))
 colnames(scaled_matrix) <- colnames(matrix_data)
 
 # Create a vector of labels and their positions
-label_positions <- which(row.names(scaled_matrix) %in% labels_data$V2)
-label_names <- labels_data$V2
+label_positions <- which(row.names(scaled_matrix) %in% labels_data)
+label_names <- labels_data
 ```
 
 ## Visualization

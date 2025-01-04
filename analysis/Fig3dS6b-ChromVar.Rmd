@@ -3,8 +3,13 @@ title: "Notebook to reproduce Figure 3d & S6b"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 author: "Yiyan Wu"
 params:
-  plot_dir: "output" 
-  archr_proj: ""
+  output_dir: "output" 
+  archr_proj: "data/multiome_results/10_ArchR/CellClass_L5_2"
+  archr_threads: 8
+  genome_version: "hg38"
+  TFs_of_interest: "data/Neuronal_TF.csv"
+  TF_deviations: "data/TF_deviations.rds"
+  TF_exp_mtx: "data/TF_exp_mtx.csv"
 output: html_document
 ---
 
@@ -13,15 +18,56 @@ output: html_document
 knitr::opts_knit$set(root.dir = here::here(), warning = FALSE)
 ```
 
+```{r, temp}
+setwd("/cluster/projects/gaitigroup/Users/Yiyan/GBM_publication/gbm_manuscript")
+params <- list(
+    output_dir = "output",
+    archr_proj = "data/multiome_results/10_ArchR/CellClass_L5_2",
+    archr_threads = 8,
+    genome_version = "hg38",
+    celltype_column = "CellClass_L5_2",
+    patient_column = "Patient",
+    region_column = "Region",
+    confidence_column = "Confident_Annotation",
+    include_types = "Malignant_NPC1,Malignant_NPC2,Malignant_OPC,Invasive-high_OPC_NPC1,Malignant_MES_HYP,Malignant_MES_INT,Malignant_MES_AST,Malignant_AC",
+    exclude_types = NULL,
+    include_regions = NULL,
+    TFs_of_interest = "data/Neuronal_TF.csv",
+    TF_deviations = "data/TF_deviations.rds",
+    TF_exp_mtx = "data/TF_exp_mtx.csv"
+)
 
+```
 
 ## Prepare data
 ```{r, prep-data}
-pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr)
-GaitiLabUtils::create_dir(params$plot_dir)
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, ArchR, BSgenome.Hsapiens.UCSC.hg38, cowplot, dplyr, data.table, reshape, ggpubr, rstatix, tibble, ggrepel, ggplot2, circlize, ComplexHeatmap, viridis, Seurat)
 
-# TODO load archr_proj @Yiyan-YW check
+# Load ArchR project
+addArchRThreads(threads = as.numeric(params$archr_threads))
+addArchRGenome(genome = params$genome_version)
 archr_proj <- loadArchRProject(params$archr_proj)
+
+# Filter out the cell types
+cell_type_column <- paste0("Seurat_", params$celltype_column)
+patient_column <- paste0("Seurat_", params$patient_column)
+region_column <- paste0("Seurat_", params$region_column)
+confidence_column <- paste0("Seurat_", params$confidence_column)
+
+if(!is.null(params$include_types)){
+  include_types <- str_split(params$include_types, ",")[[1]]
+  archr_proj <- archr_proj[which(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% include_types)]
+}else if(!is.null(params$exclude_types)){
+  exclude_types <- str_split(params$exclude_types, ",")[[1]]
+  archr_proj <- archr_proj[which(!(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% exclude_types))]
+}
+
+archr_proj <- archr_proj[which(getCellColData(archr_proj, select = confidence_column, drop = TRUE) == "TRUE")]
+
+if (!is.null(params$include_regions)) {
+  include_regions <- str_split(params$include_regions, ",")[[1]]
+  archr_proj <- archr_proj[which(getCellColData(archr_proj, select = region_column, drop = TRUE) %in% include_regions)]
+}
 
 # TF with high deviation from ChromVAR in inv high and high correlation to gene expression
 # Identifying deviant TF motifs
@@ -41,6 +87,10 @@ corGEM_MM <- correlateMatrices(
 
 # Add maximum delta deviation to the correlation data frame
 corGEM_MM$Inv_delta <- as.numeric(rowData(seZ)[match(corGEM_MM$MotifMatrix_name, rowData(seZ)$name), "Inv_delta"])
+
+# Get the motifs to plot
+motifs_df <- fread(params$TFs_of_interest, header = TRUE)
+motifs_to_plot <- unique(motifs_df$TF[motifs_df$Group == "ScenicPlus"])
 
 # Filter out duplicated TFs
 corGEM_MM <- corGEM_MM[order(abs(corGEM_MM$cor), decreasing = TRUE), ]
@@ -92,10 +142,9 @@ corGEM_MM$MotifMatrix_name <- substr(corGEM_MM$MotifMatrix_name, 1, regexpr("_",
 ggplot(data.frame(corGEM_MM), aes(cor, Inv_delta, color = TFRegulator)) +
   geom_point(data = data.frame(corGEM_MM[corGEM_MM$TFRegulator == "Not significant", ]), aes(cor, Inv_delta, color = TFRegulator), size = 1, alpha = 0.75) +
   geom_point(data = data.frame(corGEM_MM[corGEM_MM$TFRegulator != "Not significant", ]), aes(cor, Inv_delta, color = TFRegulator), size = 2) +
-  GBM_theme() +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
-  geom_hline(yintercept = quantile(corGEM_MM$Inv_delta, 0.95), lty = "dashed", color = "darkgrey") +
+  geom_hline(yintercept = quantile(corGEM_MM$Inv_delta, 0.9), lty = "dashed", color = "darkgrey") +
   scale_color_manual(values = c(
     "Not significant" = "darkgrey",
     "Putative regulator" = "#2B7095",
@@ -116,20 +165,21 @@ ggplot(data.frame(corGEM_MM), aes(cor, Inv_delta, color = TFRegulator)) +
     expand = c(0, 0),
     limits = c(-1, 1)
   ) +
+  GBM_theme() +
   theme(
     legend.position = "bottom",
     legend.title = element_blank()
   )
 
-ggsave(paste0(params$plot_dir, "/corGEM_MM_TF_Regulator_95.pdf"), width = 7, height = 7.5)
+ggsave(paste0(params$output_dir, "/corGEM_MM_TF_Regulator.pdf"), width = 7, height = 7.5)
 ```
 
 
 ```{r, vis-2, fig.height = 80, fig.width = 5}
 # ---------------------------- Scatter plot for each TF ---------------------------- #
-p <- readRDS(paste0(params$plot_dir, "/TF_deviations.rds"))
+p <- readRDS(params$TF_deviations)
 
-motifs_to_plot <- c("TCF12", "TCF4", "TCF3", "ASCL1", "ZEB1", "KLF12", "OLIG1", "OLIG2", "SOX2", "SOX4", "SOX10", "SOX11", "FOSL1", "FOSL2")
+motifs_to_plot <- c("TCF12", "TCF4", "TCF3", "ASCL1", "ZEB1", "KLF12", "FOSL1", "FOSL2")
 
 df_neuronal <- NULL
 for (i in 1:length(p)) {
@@ -139,7 +189,7 @@ for (i in 1:length(p)) {
   curr_TF <- names(p)[i]
   curr_TF <- strsplit(curr_TF, "_")[[1]][1]
   curr_TF <- strsplit(curr_TF, "z:")[[1]][2]
-  log_info("Currently analyzing: ", curr_TF)
+  print(curr_TF)
 
   if (!(curr_TF %in% motifs_to_plot)) next
 
@@ -148,11 +198,11 @@ for (i in 1:length(p)) {
 }
 
 # Load the expression data for the TFs
-exp_mat <- readRDS(paste0(params$plot_dir, "/TF_exp_mtx.csv"))
+exp_mat <- fread(params$TF_exp_mtx)
 exp_mat$archr_cellnames <- sub("-1.*", "", exp_mat$archr_cellnames)
 
 for (TF_name in unique(df_neuronal$TF)) {
-  log_info("Currently analyzing: ", TF_name)
+  print(paste0("Currently analyzing: ", TF_name))
   curr_TF_chromVAR <- df_neuronal[df_neuronal$TF == TF_name, ] %>%
     rownames_to_column(var = "archr_cellnames")
   curr_TF_chromVAR$archr_cellnames <- sub("-1.*", "", curr_TF_chromVAR$archr_cellnames)
@@ -165,25 +215,12 @@ for (TF_name in unique(df_neuronal$TF)) {
       Barcode = sub(".*#", "", archr_cellnames)
     )
 
-  # Calculate the average by sample and cell type
-  curr_df <- curr_df %>%
-    group_by(Sample, x) %>%
-    summarise(
-      mean_gex = mean(get(TF_name)),
-      mean_acc = mean(y),
-      n_cell = n()
-    ) %>%
-    ungroup() %>%
-    filter(n_cell > 10) # filter out low sample
-
   # Aggregate at cell type level
   curr_df <- curr_df %>%
-    group_by(x) %>%
-    summarise(
-      mean_cell_type_gex = mean(mean_gex),
-      mean_cell_type_acc = mean(mean_acc),
-      total_n = sum(n_cell)
-    )
+    dplyr::group_by(x) %>%
+    dplyr::summarise(mean_cell_type_gex = mean(get(TF_name)),
+              mean_cell_type_acc = mean(y),
+              total_n = n())
 
   # Rename cell type
   curr_df <- curr_df %>%
@@ -222,7 +259,7 @@ for (TF_name in unique(df_neuronal$TF)) {
       legend.title = element_blank()
     ) +
     ggtitle(TF_name)
-  ggsave(paste0(params$plot_dir, "/Neuronal_motif_deviation_score_scatterplot_legend_", TF_name, ".pdf"), width = 5, height = 5.5)
+  ggsave(paste0(params$output_dir, "/Neuronal_motif_deviation_score_scatterplot_legend_", TF_name, ".pdf"), width = 5, height = 5.5)
 }
 ```
 
