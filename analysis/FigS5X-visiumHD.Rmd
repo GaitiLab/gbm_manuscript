@@ -1,0 +1,485 @@
+---
+title: "Notebook to reproduce Figure XX"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Joan Kant"
+params:
+    output_dir: "output/VisiumHD"
+    sample_id:  "Gaiti_Yiyan__6425_cortex_1_A1"
+    segmentation_masks_path: "data/VisiumHD/processed/6425_cortex_1_A1__masks.json"
+    seurat_obj_path: "data/VisiumHD/processed/6425_cortex_1_A1.rds"
+    output_dir: "output/VisiumHD"
+    k_neighbors: 30
+    pseudobulk_scores_path: "data/VisiumHD/processed/10k/6425_combined_pseudobulk_scores_k30.rds"
+    n_iter: 10000
+    lower_limit: 0.10
+    upper_limit: 0.90
+    scale_factors_path: "/cluster/projects/gaitigroup/Data/GBM_VisiumHD/20240708_LH00244_0121_B22MN7GLT3_Gaiti_Yiyan_Visium"
+    seurat_obj_subset_path: "data/VisiumHD/processed/10k/6425_combined_seurat_obj_meanshortest_k30.rds"
+    DE_markers_scRNAseq: "misc/cci_cellclass_l2_2_markers.csv"
+    top_n: 15
+output: html_document
+---
+
+
+```{r, rmarkdown-setup, include=FALSE}
+knitr::opts_knit$set(
+    root.dir = here::here()
+)
+knitr::opts_chunk$set(
+    fig.align = "center", fig.width = 12, warning = FALSE
+)
+pacman::p_load(GaitiLabUtils, GBMutils, glue, data.table, tidyverse, stringr, sf, rjson, Seurat)
+logr <- init_logging()
+
+
+params <- list()
+params$output_dir <- "output/VisiumHD/20250103_restoreFigS5XX-visiumHD"
+params$k_neighbors <- 30
+
+params$pseudobulk_scores_path <- glue("data/VisiumHD/processed/10k/6425_combined_pseudobulk_scores_k{params$k_neighbors}.rds")
+params$n_iter <- 10000
+params$lower_limit <- 0.10
+params$upper_limit <- 0.90
+params$scale_factors_path <- glue("/cluster/projects/gaitigroup/Data/GBM_VisiumHD/20240708_LH00244_0121_B22MN7GLT3_Gaiti_Yiyan_Visium")
+params$markers_path <- glue("data/VisiumHD/processed/{params$sample_id}_markers_by_celltype.rds")
+params$DE_markers_scRNAseq <- "misc/cci_cellclass_l2_2_markers.csv"
+params$top_n <- 15
+
+create_dir(params$output_dir)
+```
+
+## Expression markers
+```{r}
+log_info("Load color palette...")
+palette_L1 <- GBMutils::load_color_palette("Spatial_CellClass_L1")
+
+# Cell type labels
+neuron_subtypes <- c("Glutamatergic", "GABAergic")
+malignant_signatures <- c("Differentiated-like", "Progenitor-like", "Invasive-high OPC/NPC1")
+myeloid_subtypes <- c("Myeloid_Inflammatory", "Myeloid_Immunosuppressive")
+
+cell_type_pair_oi <- c("Neuron", "Malignant")
+cat_dist_simplified_labels <- setNames(c("Nearest 10% malignant cells to neurons", "Furthest 10% malignant cells to neurons"), c("closest", "furthest"))
+
+myfuns_nam <- list(close = min, far = max)
+signif_level <- 0.05
+
+# Create color palette for distance labels
+distance_labels <- setNames(c(
+    paste0("<", params$lower_limit * 100, "%"),
+    paste0(
+        params$lower_limit * 100, "% <= mean distance <= ",
+        params$upper_limit * 100, "%"
+    ),
+    paste0(">", params$upper_limit * 100, "%")
+), c("bottom", "between", "top"))
+
+palette_dist_gradient <- setNames(RColorBrewer::brewer.pal(n = 8, name = "Blues")[c(3, 5, 8)], distance_labels)
+palette_malign_dist_grad_x_neuron <- c(palette_L1["Neuron"], palette_dist_gradient)
+color_gradient_simplified <- setNames(palette_dist_gradient[c(1, 3)], cat_dist_simplified_labels)
+```
+```{r, expr-heatmaps-prep}
+params_tmp <- list()
+for (current_sample_id in c("Gaiti_Yiyan__6425_cortex_3_D1", "Gaiti_Yiyan__6425_cortex_1_A1")) {
+    log_info(glue("Current sample: {current_sample_id}..."))
+    params_tmp$seurat_obj_path <- glue("data/VisiumHD/processed/{current_sample_id}.rds")
+    params_tmp$DE_markers_VisiumHD <- glue("data/VisiumHD/processed/{current_sample_id}_markers_by_celltype.rds")
+
+
+    log_info("Load Seurat object...")
+    seurat_obj <- readRDS(params_tmp$seurat_obj_path)
+
+    log_info("Load scRNAseq DE results...")
+    DE_markers_scRNAseq <- read.csv(params$DE_markers_scRNAseq) %>%
+        # Only keep genes that are in the VisiumHD data
+        filter(gene %in% rownames(seurat_obj), cluster != "NoSignals") %>%
+        # Combine cell types -> broader cell type annotation
+        mutate(
+            cluster = case_when(
+                cluster %in% neuron_subtypes ~ "Neuron",
+                cluster == "Endothelial" ~ "BV",
+                cluster %in% malignant_signatures ~ "Malignant",
+                cluster %in% myeloid_subtypes ~ "Myeloid",
+                .default = cluster
+            ),
+            p_val_adj = ifelse(p_val_adj == 0, .Machine$double.xmin, p_val_adj),
+            score = -log10(p_val_adj) * avg_log2FC
+        ) %>%
+        select(-X)
+
+    log_info("Load VisiumHD DE results...")
+    DE_visiumHD_markers <- readRDS(params_tmp$DE_markers_VisiumHD) %>%
+        remove_rownames() %>%
+        mutate(
+            p_val_adj = ifelse(p_val_adj == 0, .Machine$double.xmin, p_val_adj),
+            score = -log10(p_val_adj) * avg_log2FC
+        )
+
+    log_info("Extract cell type markers for cell types of interest...")
+    # ---- assign gene to cell type based on -log10(p-adj) x avglog2FC ----
+    scRNAseq_markers <- DE_markers_scRNAseq %>%
+        # Manual filtering
+        dplyr::filter(avg_log2FC > log2(1.5), p_val_adj < 0.05) %>%
+        # Force genes to only occur once (based on -log10(p-adj) * avg_log2FC)
+        arrange(desc(score)) %>%
+        distinct(gene, .keep_all = TRUE)
+
+    scRNAseq_markers %>% count(cluster)
+
+    visiumHD_markers <- DE_visiumHD_markers %>%
+        arrange(desc(score)) %>%
+        dplyr::filter(avg_log2FC > log2(1.5), p_val_adj < 0.05) %>%
+        arrange(desc(score)) %>%
+        distinct(gene, .keep_all = TRUE)
+
+    # visiumHD_markers %>% count(cluster)
+
+    # ---- Final filtering ----
+    scRNAseq_markers <- scRNAseq_markers %>%
+        group_by(cluster) %>%
+        # Select top-15 genes as markers for each cell type
+        slice_max(order_by = score, n = params$top_n) %>%
+        ungroup() %>%
+        arrange(cluster)
+
+    visiumHD_markers <- visiumHD_markers %>%
+        group_by(cluster) %>%
+        ungroup() %>%
+        arrange(cluster)
+
+    common_markers <- visiumHD_markers %>%
+        # Annotate visiumHD markers using the selected scRNAseq markers
+        left_join(scRNAseq_markers, by = c("cluster", "gene")) %>%
+        # Only keep visiumHD genes that are annotated based on cluster (cell type) and gene
+        filter(!is.na(p_val_adj.y)) %>%
+        mutate(cluster = factor(cluster, seurat_obj$BANKSY_snn_res.2_annot %>% unique() %>% sort())) %>%
+        arrange(cluster) %>%
+        # Remove 'Malignant markers'
+        filter(cluster != "Malignant")
+    common_markers %>% count(cluster)
+
+    log_info("Set default assay")
+    DefaultAssay(seurat_obj) <- "RNA"
+    Idents(seurat_obj) <- "BANKSY_snn_res.2_annot"
+    print(seurat_obj)
+
+    log_info("Compute average expression...")
+
+    common_markers_top_15 <- common_markers %>%
+        group_by(cluster) %>%
+        # Select top-15 genes as markers for each cell type
+        slice_max(order_by = score.x, n = 15) %>%
+        ungroup() %>%
+        filter(cluster != "Malignant")
+
+    # Use standardized data
+    seurat_obj <- ScaleData(seurat_obj, features = common_markers_top_15$gene, assay = "RNA")
+    avg_exp <- AverageExpression(seurat_obj,
+        features = common_markers_top_15$gene,
+        layer = "scale.data", assay = "RNA"
+    )[["RNA"]] %>%
+        data.frame() %>%
+        rownames_to_column("gene")
+
+    log_info("Annotate genes in VisiumHD using the cell type markers from scRNAseq...")
+    df <- avg_exp %>%
+        left_join(common_markers_top_15 %>% rename(label = cluster) %>% select(label, gene)) %>%
+        filter(!is.na(label)) %>%
+        arrange(label)
+
+    top_annot_df <- df %>% select(gene, label)
+
+    mat <- df %>%
+        select(-c(
+            label
+        )) %>%
+        t()
+
+    colnames(mat) <- mat[1, ]
+    mat <- mat[2:nrow(mat), ]
+    mat <- mat %>% data.matrix()
+    old_rownames <- rownames(mat)
+
+    mat <- apply(mat, 2, as.numeric, simplify = TRUE)
+    rownames(mat) <- old_rownames
+
+    # Setup legend for ComplexHeatmap
+    legend_min <- plyr::round_any(min(mat), 0.5, round)
+    legend_mid <- 0
+    legend_max <- plyr::round_any(max(mat), 0.5, round)
+    limit <- max(abs(c(legend_min, legend_max)))
+
+    # Setup colors
+    col_fun <- circlize::colorRamp2(
+        # Values
+        c(-limit, legend_mid, limit),
+        # Colors
+        GBMutils::load_color_palette("Divergent_1")
+    )
+
+    lgd <- ComplexHeatmap::Legend(
+        col_fun = col_fun,
+        title = "Mean scaled\nexpression",
+        direction = "horizontal",
+    )
+    lgd_list <- list(lgd)
+
+    # Setup gene annotation categories (labels from annotation file)
+    top_annot <- ComplexHeatmap::HeatmapAnnotation(
+        Label = top_annot_df %>% pull(label),
+        col = list(
+            Label = palette_L1[!is.na(names(palette_L1))]
+        ),
+        annotation_legend_param = list(
+            Label = list(
+                direction = ifelse(!is.null(top_n), "horizontal", "vertical"),
+                ncol = top_annot_df %>%
+                    pull(label) %>%
+                    unique() %>% length(),
+                nrow = 3
+            )
+        )
+    )
+
+    # Determine order of columns (cluster genes within each cell type)
+    dend <- ComplexHeatmap::cluster_within_group(mat, as.character(top_annot_df$label))
+    # Use the same order to order the rows
+    mat <- mat[c(unique(as.character(top_annot_df$label)[order.dendrogram(dend)]), "Malignant", "Undetermined"), ]
+
+    log_info("Create heatmap...")
+    hm <- GaitiLabUtils::create_hm(mat,
+        cell_width = 5,
+        cell_height = 5,
+        show_column_names = TRUE,
+        show_row_names = TRUE,
+        col = col_fun,
+        column_split = top_annot_df %>% pull(label) %>% unique() %>% length(),
+        # Font sizes
+        row_names_gp = grid::gpar(fontsize = 12),
+        column_names_gp = grid::gpar(fontsize = 8),
+        column_title_gp = grid::gpar(fontsize = 12),
+        # Dendrograms
+        show_row_dend = FALSE,
+        show_column_dend = FALSE,
+
+        # Clustering
+        cluster_rows = FALSE,
+        cluster_columns = dend,
+        show_heatmap_legend = FALSE,
+        row_title = "Cluster",
+        name = "Mean scaled expression",
+
+        # Annotations
+        top_annotation = top_annot
+    )
+
+    R.devices::suppressGraphics({
+        # Save heatmap
+        GaitiLabUtils::save_hm(
+            hm_obj = hm,
+            output_file = file.path(
+                params$output_dir,
+                glue("FigS5XX-{current_sample_id}__celltypemarkers_top{params$top_n}_expression_heatmaps.pdf")
+            ),
+            heatmap_legend_side = "bottom", annotation_legend_side = "bottom",
+            merge_legend = TRUE, heatmap_legend_list = lgd_list
+        )
+    })
+}
+```
+
+
+## Spatial cell type distribution
+```{r, spatial-cell-type-distribution}
+params_tmp <- list()
+for (current_sample_id in c("Gaiti_Yiyan__6425_cortex_3_D1", "Gaiti_Yiyan__6425_cortex_1_A1")) {
+    log_info(glue("Current sample: {current_sample_id}..."))
+    params_tmp$segmentation_masks_path <- glue("data/VisiumHD/processed/{current_sample_id}__masks.json")
+    params_tmp$seurat_obj_path <- glue("data/VisiumHD/processed/{current_sample_id}.rds")
+    params_tmp$scale_factors_path <- glue("{params$scale_factors_path}/{current_sample_id}/outs/binned_outputs/square_002um/spatial/scalefactors_json.json")
+
+    log_info("Load scalefactors...")
+    scalefactors <-
+        fromJSON(file = params_tmp$scale_factors_path)
+
+    log_info("Load segmentation masks...")
+    gdf <- read_sf(params_tmp$segmentation_masks_path) %>% mutate(geometry_px = geometry)
+    # Remove coordinate systems, just want to use cartesian system
+    st_crs(gdf) <- NA
+
+    log_info("Load Seurat object...")
+    seurat_obj <- readRDS(params_tmp$seurat_obj_path)
+
+    log_info("Combine metadata and segmentation masks...")
+    meta_sdf <- sf::st_as_sf(
+        (seurat_obj@meta.data) %>%
+            left_join(gdf, by = "id")
+    ) %>%
+        # Convert to px to microns
+        mutate(geometry = geometry_px * scalefactors$microns_per_pixel)
+    log_info("Plot spatial distribution...")
+    p <- ggplot(meta_sdf) +
+        geom_sf(aes(fill = BANKSY_snn_res.2_annot), color = NA) +
+        GBMutils::GBM_theme() +
+        scale_fill_manual(
+            values = palette_L1,
+            guide = guide_legend(override.aes = list(size = 5), title = "Cell type")
+        ) +
+        coord_sf() +
+        scale_y_reverse() +
+        labs(
+            x = "X (µm)", y = "Y (µm)", subtitle = paste0("No. cells=", prettyNum(nrow(meta_sdf), big.mark = ","))
+        ) +
+        theme(aspect.ratio = 1, axis.text = element_blank(), axis.ticks = element_blank())
+
+    log_info("Save figure as PDF...")
+    ggsave(plot = p, filename = glue("FigS5XX-{current_sample_id}_spatial.pdf"), path = params$output_dir, width = 8, height = 8)
+}
+```
+
+## Relationship proximity Malignant cells - Neurons and subtype signatures
+
+
+```{r, stats}
+log_info("Load pseudobulk scores...")
+pseudobulk_scores_df_long <- readRDS(params$pseudobulk_scores_path) %>%
+    rename(signature = variable)
+
+# Split into observed and shuffled
+pseudobulk_scores_observed_df_long <- pseudobulk_scores_df_long %>%
+    filter(ix == "cat_dist") %>%
+    mutate(AddModuleScore = as.numeric(AddModuleScore)) %>%
+    rename(AddModuleScore_obs = AddModuleScore) %>%
+    select(-ix)
+
+pseudobulk_scores_shuffled_df_long <- pseudobulk_scores_df_long %>%
+    filter(ix != "cat_dist") %>%
+    mutate(AddModuleScore = as.numeric(AddModuleScore)) %>%
+    rename(AddModuleScore_shuffled = AddModuleScore)
+
+# Combine observed and shuffled dataframes
+stat_df_long <- pseudobulk_scores_shuffled_df_long %>%
+    left_join(pseudobulk_scores_observed_df_long)
+
+# Convert to wide format, compute basic statistics for permutations
+stat_df_wide <- stat_df_long %>%
+    pivot_wider(names_from = ix, values_from = AddModuleScore_shuffled) %>%
+    rowwise() %>%
+    mutate(
+        perm_min = min(c_across(starts_with("cat_dist_sid"))),
+        perm_max = max(c_across(starts_with("cat_dist_sid"))),
+        perm_mean = mean(c_across(starts_with("cat_dist_sid"))),
+        perm_median = median(c_across(starts_with("cat_dist_sid"))),
+        perm_sd = sd(c_across(starts_with("cat_dist_sid"))),
+        # Testing hypothesis H0 < H1 (alternative = 'greater')
+        count_larger = sum(c_across(starts_with("cat_dist_sid_")) > AddModuleScore_obs) + 1,
+        # Testing hypothesis H0 > H1 (alternative = 'less')
+        count_smaller = sum(c_across(starts_with("cat_dist_sid_")) < AddModuleScore_obs) + 1,
+        z_score = (AddModuleScore_obs - perm_mean) / perm_sd,
+        interaction_type = ifelse(
+            z_score > 0,
+            "Co-localization",
+            "Avoidance"
+        ),
+        p_value = ifelse(interaction_type == "Co-localization",
+            # Co-localization
+            count_larger / params$n_iter,
+            count_smaller / params$n_iter
+        ),
+        p_value_coloc = count_larger / params$n_iter,
+        p_value_avoid = count_smaller / params$n_iter,
+        cat_dist_simplified = factor(
+            ifelse(cat_dist == paste0("<", params$lower_limit * 100, "%"),
+                cat_dist_simplified_labels[["closest"]], cat_dist_simplified_labels[["furthest"]]
+            ),
+            levels = cat_dist_simplified_labels
+        )
+    ) %>%
+    # Only interested in bottom and top category
+    filter(cat_dist != distance_labels[["between"]])
+
+# Correction for multiple testing
+stat_df_wide$p_value_adj <- p.adjust(stat_df_wide$p_value, "bonferroni")
+
+stat_df_wide <- stat_df_wide %>%
+    mutate(
+        is_significant = p_value < signif_level,
+        is_significant_adj = p_value_adj < signif_level,
+        signature = factor(str_replace_all(signature, "_", "-"), malignant_signatures)
+    )
+```
+
+```{r, stats-vis-invasive}
+p_bar <- ggplot(
+    data = stat_df_wide %>%
+        filter(cat_dist_simplified == cat_dist_simplified_labels[["furthest"]]),
+    aes(
+        fill = signature,
+        x = signature, y = z_score
+    )
+) +
+    geom_bar(stat = "identity", position = "dodge", show.legend = FALSE, fill = "grey", color = "black") +
+    scale_fill_manual(values = palette) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    GBMutils::GBM_theme() +
+    labs(
+        title = cat_dist_simplified_labels[["furthest"]],
+        subtitle =
+            glue("k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"),
+        y = glue("Z-score"),
+        x = "Signature"
+    ) +
+    coord_flip()
+
+log_info("Save figure as PDF...")
+ggsave(p_bar,
+    filename = glue("FigS5XX-malign_signature_vs_proximity_k{params$k_neighbors}_neurons_barplot_furthest_from_neuron.pdf"),
+    height = 4,
+    path = params$output_dir
+)
+
+# Split into shuffled and observed
+stat_shuffled_df_subset_long <- stat_df_wide %>%
+    select(cat_dist_simplified, signature, starts_with("cat_dist_sid")) %>%
+    reshape2::melt(variable.name = "iteration_id", value.name = "score")
+
+stat_obs_df_subset_wide <- stat_df_wide %>%
+    select(cat_dist_simplified, signature, AddModuleScore_obs, perm_mean, z_score, p_value, p_value_adj) %>%
+    distinct()
+
+
+p_histo <- ggplot(
+    data = stat_shuffled_df_subset_long,
+    aes(x = score)
+) +
+    geom_histogram(binwidth = 1e-3, show.legend = FALSE, fill = "grey") +
+    ggh4x::facet_grid2(signature ~ cat_dist_simplified, scales = "free_x", axes = "all", independent = "x") +
+    geom_vline(data = stat_obs_df_subset_wide, aes(xintercept = AddModuleScore_obs), color = "blue") +
+    geom_vline(data = stat_obs_df_subset_wide, aes(xintercept = perm_mean), color = "red", linetype = "dashed") +
+    geom_text(data = stat_obs_df_subset_wide, aes(
+        x = (AddModuleScore_obs - AddModuleScore_obs * 0.01),
+        label = glue("Observed Module score={round(AddModuleScore_obs, 5)}"), y = 300
+    ), colour = "blue", angle = 90, size = 1.5) +
+    scale_x_continuous(breaks = scales::pretty_breaks()) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    GBMutils::GBM_theme() +
+    labs(
+        x = "Module Score", y = "No. of iterations",
+        subtitle =
+            glue("k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"),
+    ) +
+    theme(
+        aspect.ratio = 0.5,
+        strip.text.x.top = element_text(size = rel(0.55)),
+        strip.text.y.right = element_text(size = rel(0.35))
+    )
+
+log_info("Save figure as PDF...")
+ggsave(p_histo, filename = glue("FigS5XX-malign_signature_vs_proximity_k{params$k_neighbors}_neurons_histo_all.pdf"), height = 8, path = params$output_dir)
+```
+
+
+## Session Info
+```{r, session-info, echo = FALSE}
+sessionInfo()
+```
