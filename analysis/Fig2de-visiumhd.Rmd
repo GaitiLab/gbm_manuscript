@@ -76,30 +76,6 @@ color_gradient_simplified <- setNames(palette_dist_gradient[c(1, 3)], cat_dist_s
 ```
 
 ## Figure 2d
-<!-- TODO check name sample -->
-Input: VisiumHD sample PT1
-
-```{r, fig2d-prep-masks}
-log_info("Load scalefactors...")
-scalefactors <-
-    fromJSON(file = params$scale_factors_path)
-
-log_info("Load segmentation masks...")
-gdf <- read_sf(params$segmentation_masks_path) %>% mutate(geometry_px = geometry)
-# Remove coordinate systems, just want to use cartesian system
-st_crs(gdf) <- NA
-
-log_info("Load Seurat object...")
-seurat_obj <- readRDS(params$seurat_obj_path)
-
-log_info("Combine metadata and segmentation masks...")
-meta_sdf <- sf::st_as_sf(
-    (seurat_obj@meta.data) %>%
-        left_join(gdf, by = "id")
-) %>%
-    # Convert to px to microns
-    mutate(geometry = geometry_px * scalefactors$microns_per_pixel)
-```
 
 **Approach**
 Input: two VisiumHD PT samples. 
@@ -126,6 +102,32 @@ For each label and signature combination:
 2. p-value
    * if z-score > 0, then p-value = $$((\sum_{i=1}^{I} S~i > s~observed) + 1) / R$$
    * if z-score < 0, then p-value = $$((\sum_{i=1}^{I} S~i < s~observed) + 1) / R$$
+
+
+<!-- TODO check name sample -->
+Input: VisiumHD sample PT1
+
+```{r, fig2d-prep-masks}
+log_info("Load scalefactors...")
+scalefactors <-
+    fromJSON(file = params$scale_factors_path)
+
+log_info("Load segmentation masks...")
+gdf <- read_sf(params$segmentation_masks_path) %>% mutate(geometry_px = geometry)
+# Remove coordinate systems, just want to use cartesian system
+st_crs(gdf) <- NA
+
+log_info("Load Seurat object...")
+seurat_obj <- readRDS(params$seurat_obj_path)
+
+log_info("Combine metadata and segmentation masks...")
+meta_sdf <- sf::st_as_sf(
+    (seurat_obj@meta.data) %>%
+        left_join(gdf, by = "id")
+) %>%
+    # Convert to px to microns
+    mutate(geometry = geometry_px * scalefactors$microns_per_pixel)
+```
 
 ```{r, fig2d-neuron-malignant-continuous-distances}
 log_info("Load Seurat object subset...")
@@ -188,6 +190,7 @@ ggsave(
 )
 ```
 
+## Figure 2e
 Use output previously generated with `preprocessing/VisiumHD/assess_prox_vs_malign_signature.R` for visualization. 
 
 ```{r, stats}
@@ -260,15 +263,23 @@ stat_df_wide <- stat_df_wide %>%
 ```
 
 ```{r, stats-vis-invasive}
+data_bar <- stat_df_wide %>%
+    filter(cat_dist_simplified == cat_dist_simplified_labels[["closest"]]) %>%
+    select(signature, z_score)
+
 p_bar <- ggplot(
-    data = stat_df_wide %>%
-        filter(cat_dist_simplified == cat_dist_simplified_labels[["closest"]]),
+    data = data_bar,
     aes(
         fill = signature,
         x = signature, y = z_score
     )
 ) +
-    geom_bar(stat = "identity", position = "dodge", show.legend = FALSE, fill = "grey", color = "black") +
+    geom_bar(
+        stat = "identity",
+        position = "dodge",
+        show.legend = FALSE,
+        fill = "grey", color = "black"
+    ) +
     scale_fill_manual(values = palette) +
     scale_y_continuous(breaks = scales::pretty_breaks()) +
     GBMutils::GBM_theme() +
@@ -328,8 +339,42 @@ p_histo <- ggplot(
     theme(aspect.ratio = 0.5)
 
 log_info("Save figure as PDF...")
-ggsave(p_histo, filename = glue("Fig2e-malign_signature_vs_proximity_k{params$k_neighbors}_neurons_invasive_only_closest_to_neuron.pdf"), height = 4, path = params$output_dir)
+ggsave(p_histo,
+    filename = glue("Fig2e-malign_signature_vs_proximity_k{params$k_neighbors}_neurons_invasive_only_closest_to_neuron.pdf"),
+    height = 4, path = params$output_dir
+)
 ```
+
+
+```{r, manual-testing-stat, eval = FALSE}
+# Check if data behind barplot matches when computing the z-scores manually
+data_bar %>% head()
+
+# Manual computation
+test_df_wide <- stat_df_wide %>%
+    filter(
+        cat_dist_simplified == cat_dist_simplified_labels[["closest"]],
+        signature == "Invasive-high OPC/NPC1"
+    )
+
+test_df_wide %>% head()
+
+test_df_shuffled_long <- test_df_wide %>%
+    select(starts_with("cat_dist_sid")) %>%
+    reshape2::melt()
+
+
+mean_obs <- test_df_wide %>%
+    select(AddModuleScore_obs) %>%
+    pull()
+shuffled_scores_mean <- mean(test_df_shuffled_long$value)
+shuffled_scores_sd <- sd(test_df_shuffled_long$value)
+z_score <- (mean_obs - shuffled_scores_mean) / shuffled_scores_sd
+
+# z_score should match the data_bar %>% head() output
+print(z_score)
+```
+
 
 ## Session Info
 ```{r, session-info, echo = FALSE}
