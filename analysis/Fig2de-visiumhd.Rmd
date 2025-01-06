@@ -35,7 +35,7 @@ params <- list()
 params$sample_id <- "Gaiti_Yiyan__6425_cortex_1_A1"
 params$segmentation_masks_path <- glue("data/VisiumHD/processed/{params$sample_id}__masks.json")
 params$seurat_obj_path <- glue("data/VisiumHD/processed/{params$sample_id}.rds")
-params$output_dir <- "output/VisiumHD/20250103"
+params$output_dir <- "output/VisiumHD/20250106"
 params$k_neighbors <- 30
 
 params$pseudobulk_scores_path <- glue("data/VisiumHD/processed/10k/6425_combined_pseudobulk_scores_k{params$k_neighbors}.rds")
@@ -160,7 +160,7 @@ p <- ggplot() +
     geom_sf(data = dist_obs_sdf %>% filter(BANKSY_snn_res.2_annot == "Malignant"), aes(fill = mean_dist), color = NA) +
     GBMutils::GBM_theme() +
     scale_fill_distiller(
-        palette = "Blues", direction = 1,
+        palette = "Blues", direction = -1,
         breaks = unlist(list_val),
         guide = guide_colorbar(
             override.aes = list(size = 5),
