@@ -376,6 +376,126 @@ print(z_score)
 ```
 
 
+
+## DE Analysis between top and bottom 10% 
+
+* avg_log2FC: log fold-change of the average expression between the two groups. 
+  * Interpretation **Positive values indicate that the feature is more highly expressed in the first group.**
+```{r, dge-analysis}
+log_info("Load Seurat object...")
+seurat_obj <- readRDS("data/VisiumHD/processed/6425_combined_seurat_obj_meanshortest_k30.rds")
+
+Idents(seurat_obj) <- "cat_dist"
+DefaultAssay(seurat_obj) <- "RNA"
+
+invasive_high <- GBMutils::load_invasive_signature(type = "high")
+
+
+p <- DotPlot(seurat_obj, features = intersect(invasive_high, VariableFeatures(seurat_obj)), assay = "RNA") +
+    GBMutils::GBM_theme() +
+    scale_colour_gradient2(midpoint = 0, low = "steelblue", high = "brown") +
+    guides(
+        size = guide_legend(
+            direction = "vertical",
+            title = "Expr. by cells (%)",
+            order = 1
+        ), colour = guide_colourbar(
+            title = "Scaled avg. expr.",
+            direction = "vertical",
+            barwidth = unit(0.8, "lines"),
+            barheight = unit(6, "lines"),
+            title.position = "top", order = 2
+        )
+    ) +
+    RotatedAxis() +
+    labs(
+        x = "Marker",
+        y = "Cluster",
+        subtitle = "Intersection of Invasive-high OPC/NPC1 and VariableFeatures (n=2000) "
+    ) +
+    theme(legend.position = "right", legend.direction = "vertical")
+ggsave(p, filename = "dotplot_invasive.pdf", path = "output/testing", width = 25)
+
+
+seurat_obj <- JoinLayers(seurat_obj)
+de_results <- FindMarkers(seurat_obj,
+    ident.1 = "<10%", ident.2 = ">90%", assay = "RNA",
+    features = VariableFeatures(seurat_obj),
+    # test.use = "MAST"
+) %>%
+    rownames_to_column("Gene")
+
+
+# Thresholds
+log2fc <- 1.5
+p_val_adj_signif_thresh <- 0.1
+
+cat_colors <- setNames(c("black", "blue", "darkorange"), c("NO", "YES", "Invasive signature"))
+
+
+de_results_filtered <- de_results %>%
+    mutate(
+        diffexpressed = case_when(
+            (avg_log2FC > log2fc) & (p_val_adj < p_val_adj_signif_thresh) ~ "UP",
+            (avg_log2FC < -log2fc) & (p_val_adj < p_val_adj_signif_thresh) ~ "DOWN",
+            .default = "NO"
+        ),
+        label = case_when(
+            (diffexpressed != "NO") & (Gene %in% invasive_high) ~ Gene,
+            .default = NA
+        ),
+        alpha = ifelse(is.na(label), 0.05, 1)
+    ) %>%
+    column_to_rownames("Gene") %>%
+    mutate(diffexpressed = factor(case_when(
+        diffexpressed == "NO" ~ "NO",
+        rownames(.) %in% invasive_high ~ "Invasive signature",
+        .default = "YES"
+    ), levels = names(cat_colors)))
+
+p <- ggplot(de_results_filtered, aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+    geom_point(aes(colour = diffexpressed, alpha = alpha), size = 3.5, stroke = NA) +
+    scale_colour_manual(values = cat_colors) +
+    ggrepel::geom_label_repel(aes(label = label), size = 3, colour = "darkorange", na.rm = TRUE, nudge_x = 2, nudge_y = 1) +
+    geom_vline(xintercept = log2fc, linetype = "dashed") +
+    geom_vline(xintercept = -log2fc, linetype = "dashed") +
+    geom_hline(yintercept = -log10(p_val_adj_signif_thresh), linetype = "dashed") +
+    (ggthemes::theme_foundation(base_size = 14, base_family = "Helvetica")
+    + theme(
+            plot.title = element_text(
+                face = "bold",
+                size = rel(1.2), hjust = 0.5
+            ),
+            panel.background = element_rect(colour = NA),
+            plot.background = element_rect(colour = NA),
+            panel.border = element_rect(colour = NA),
+            axis.title = element_text(face = "bold", size = rel(1.1)),
+            axis.title.y = element_text(angle = 90, vjust = 2),
+            axis.title.x = element_text(vjust = -0.2),
+            axis.text = element_text(size = rel(1)),
+            axis.line = element_line(colour = "black"),
+            axis.ticks = element_line(),
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            legend.key = element_rect(colour = NA),
+            legend.position = "bottom",
+            legend.direction = "horizontal",
+            legend.key.size = unit(0.2, "cm"),
+            legend.spacing = unit(0, "cm"),
+            legend.title = element_text(face = "plain"),
+            plot.margin = unit(c(10, 5, 5, 5), "mm"),
+            strip.background = element_rect(colour = "#ffffff", fill = "#ffffff"),
+            strip.text = element_text(face = "bold", size = rel(1.1))
+        )) +
+    # ylim(c(0, 25)) +
+    guides(alpha = "none") +
+    xlim(c(-15, 15)) +
+    xlab(bquote(~ Log[2] ~ FoldChange)) +
+    ylab(bquote(~ -Log[10] ~ italic(FDR)))
+ggsave(p, filename = "de_dist.pdf", path = "output/testing")
+```
+
+
 ## Session Info
 ```{r, session-info, echo = FALSE}
 sessionInfo()
