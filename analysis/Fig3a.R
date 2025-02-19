@@ -26,12 +26,12 @@ parser <- ArgumentParser(description = "Pipeline for SCENIC+ target gene enrichm
 
 parser$add_argument("-i", "--input",
   type = "character",
-  default = "multiome_results/12_SCENIC_plus_snakemake/outs",
+  default = "multiome_results/12_SCENIC_plus/outs",
   help = "Input directory containing the eRegulon results."
 )
 parser$add_argument("-o", "--output_dir",
   type = "character",
-  default = "multiome_results/12_SCENIC_plus_snakemake/outs",
+  default = "multiome_results/12_SCENIC_plus/outs",
   help = "Output directory to save results."
 )
 args <- parser$parse_args()
@@ -105,15 +105,15 @@ generate_heatmap_with_labels <- function(auc_activator_mtx, TFs_to_label, geneli
   
   # Define the heatmap annotation with lines pointing to the labels using anno_mark
   ha <- rowAnnotation(mark = anno_mark(
-    at = label_positions, # Positions of the labels
-    labels = label_names, # Label names
-    side = "right", # Place the labels on the right
-    labels_gp = gpar(fontsize = 8), # Adjust font size of labels
-    link_gp = gpar(col = "black") # Customize line appearance
+    at = label_positions, 
+    labels = label_names, 
+    side = "right",
+    labels_gp = gpar(fontsize = 8),
+    link_gp = gpar(col = "black")
   ))
   
   # Define the column order to preserve the current order
-  column_order <- seq_len(ncol(scaled_matrix)) # Current column order
+  column_order <- seq_len(ncol(scaled_matrix)) 
   
   # Save the heatmap to a PDF
   pdf(file = output_file, width = 4, height = 8)
@@ -121,35 +121,35 @@ generate_heatmap_with_labels <- function(auc_activator_mtx, TFs_to_label, geneli
 
   # Create the heatmap
   if (!is.null(row_order)) {
-    row_order <- seq_len(nrow(scaled_matrix)) # Default row order
+    row_order <- seq_len(nrow(scaled_matrix)) 
     ht <- Heatmap(scaled_matrix,
-            row_names_gp = gpar(fontsize = 8), # Adjust font size for row names
-            column_names_gp = gpar(fontsize = 8), # Adjust font size for column names
-            column_order = column_order, # Preserve the current column order
-            row_order = row_order, # Apply row order if provided
-            right_annotation = ha, # Add the row annotation with lines pointing to labels
-            show_row_names = FALSE, # Hide original row names since we are adding custom labels with lines
+            row_names_gp = gpar(fontsize = 8),
+            column_names_gp = gpar(fontsize = 8),
+            column_order = column_order,
+            row_order = row_order,
+            right_annotation = ha,
+            show_row_names = FALSE,
             col = color_palette,
             width = heatmap_width,
             heatmap_legend_param = list(
-              title = NULL, # No legend title
-              at = c(-1, 1), # Positions for labels (arbitrary as numbers won't be shown)
-              labels = c("Low TF activity", "High TF activity") # Custom labels
+              title = NULL,
+              at = c(-1, 1),
+              labels = c("Low TF activity", "High TF activity")
             )
     )
   } else {
     ht <- Heatmap(scaled_matrix,
-            row_names_gp = gpar(fontsize = 8), # Adjust font size for row names
-            column_names_gp = gpar(fontsize = 8), # Adjust font size for column names
-            column_order = column_order, # Preserve the current column order
-            right_annotation = ha, # Add the row annotation with lines pointing to labels
-            show_row_names = FALSE, # Hide original row names since we are adding custom labels with lines
+            row_names_gp = gpar(fontsize = 8),
+            column_names_gp = gpar(fontsize = 8),
+            column_order = column_order,
+            right_annotation = ha,
+            show_row_names = FALSE,
             col = color_palette,
             width = heatmap_width,
             heatmap_legend_param = list(
-              title = NULL, # No legend title
-              at = c(-1, 1), # Positions for labels (arbitrary as numbers won't be shown)
-              labels = c("Low TF activity", "High TF activity") # Custom labels
+              title = NULL,
+              at = c(-1, 1),
+              labels = c("Low TF activity", "High TF activity")
             )
     )
   }
@@ -164,28 +164,28 @@ generate_heatmap_with_labels <- function(auc_activator_mtx, TFs_to_label, geneli
 
 # Generate the gene heatmap using the same row order
 row_order <- generate_heatmap_with_labels(
-  auc_activator_mtx = "multiome_results/12_SCENIC_plus_snakemake/outs/Plots/all_regions/Filtered_TFs/gene_auc_activator_mtx.csv",
-  TFs_to_label = "multiome_results/12_SCENIC_plus_snakemake/outs/Plots/all_regions/Filtered_TFs/gene_TFs_to_label.csv",
+  auc_activator_mtx = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_auc_activator_mtx.csv",
+  TFs_to_label = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_TFs_to_label.csv",
   genelists_csv = "misc/data/genelists.csv",
-  output_file = "multiome_results/12_SCENIC_plus_snakemake/outs/Plots/all_regions/Filtered_TFs/gene_heatmap_with_labels.pdf"
+  output_file = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_heatmap_with_labels.pdf"
 )
 row_order <- str_split(row_order, "_direct_\\+/\\+_", simplify = TRUE)[, 1] # Extract gene names
 
 # Generate the region heatmap and capture the row order
 generate_heatmap_with_labels(
-  auc_activator_mtx = "multiome_results/12_SCENIC_plus_snakemake/outs/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv",
-  TFs_to_label = "multiome_results/12_SCENIC_plus_snakemake/outs/Plots/all_regions/Filtered_TFs/region_TFs_to_label.csv",
+  auc_activator_mtx = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv",
+  TFs_to_label = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_TFs_to_label.csv",
   genelists_csv = "misc/data/genelists.csv",
-  output_file = "multiome_results/12_SCENIC_plus_snakemake/outs/Plots/all_regions/Filtered_TFs/region_heatmap_with_labels.pdf",
+  output_file = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_heatmap_with_labels.pdf",
   row_order = row_order # Use consistent row order
 )
 
 # --------------------------------------------- Plotting the heatmap --------------------------------------------- #
-heatmap_data_rna <- fread("multiome_results/12_SCENIC_plus_snakemake/outs/RNA_heatmap.csv") |>
+heatmap_data_rna <- fread("multiome_results/12_SCENIC_plus/outs/RNA_heatmap.csv") |>
   column_to_rownames("TF")
-heatmap_data_atac <- fread("multiome_results/12_SCENIC_plus_snakemake/outs/ATAC_heatmap.csv") |>
+heatmap_data_atac <- fread("multiome_results/12_SCENIC_plus/outs/ATAC_heatmap.csv") |>
   column_to_rownames("TF")
-TFs_to_plot <- fread("multiome_results/12_SCENIC_plus_snakemake/outs/TFs_to_plot.csv", header = TRUE)
+TFs_to_plot <- fread("multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv", header = TRUE)
 
 TF_names_to_plot <- TFs_to_plot %>%
   filter(Cell_type == "Invasive-high OPC/NPC1") %>%
