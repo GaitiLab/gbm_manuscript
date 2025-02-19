@@ -1,0 +1,542 @@
+# ---------------------------------------------------------------------------- #
+#                                Figure 3b S6a                                 #
+# ---------------------------------------------------------------------------- #
+pacman::p_load(
+  argparse,
+  varhandle,
+  log4r,
+  ArchR,
+  BSgenome.Hsapiens.UCSC.hg38,
+  cowplot,
+  stringr,
+  dplyr,
+  data.table,
+  reshape,
+  ggpubr,
+  rstatix,
+  tibble,
+  ggrepel,
+  ggplot2,
+  circlize,
+  ComplexHeatmap,
+  viridis,
+  GaitiLabUtils,
+  GBMutils,
+  ggh4x
+)
+
+parser <- ArgumentParser(description = "Pipeline for running ArchR Motif Enrichment.")
+
+parser$add_argument("-i", "--input",
+  type = "character",
+  default = "multiome_results/10_ArchR",
+  help = "Input directory containing Arrow files."
+)
+parser$add_argument("--archr_threads",
+  type = "integer",
+  default = "8",
+  help = "Number of threads used by archR."
+)
+parser$add_argument("--genome_version",
+  type = "character",
+  default = "hg38",
+  help = "Possible versions include: 'hg19', 'hg38', 'mm9', and 'mm10'."
+)
+parser$add_argument("--celltype_column",
+  type = "character",
+  default = "CellClass_L5_2",
+  help = "Metadata column containing celltypes to use for analysis (from Seurat objects)."
+)
+parser$add_argument("--patient_column",
+  type = "character",
+  default = "Patient",
+  help = "Metadata column containing patient information (from Seurat objects)."
+)
+parser$add_argument("--region_column",
+  type = "character",
+  default = "Region",
+  help = "Metadata column containing region information (from Seurat objects)."
+)
+parser$add_argument("--confidence_column",
+  type = "character",
+  default = "Confident_Annotation",
+  help = "Metadata column containing whether a celltype assignemnet is confident or not (from Seurat objects)."
+)
+parser$add_argument("--motif_set",
+  default = "cisbp",
+  type = "character",
+  help = "Motif set to be used. See ArchR::addMotifAnnotations for more information."
+)
+parser$add_argument("--include_types",
+  default = "Malignant_NPC1,Malignant_NPC2,Malignant_OPC,Invasive-high_OPC_NPC1,Malignant_MES_HYP,Malignant_MES_INT,Malignant_MES_AST,Malignant_AC",
+  type = "character",
+  help = "Cell types to include in testing."
+)
+parser$add_argument("--exclude_types",
+  default = NULL,
+  type = "character",
+  help = "Cell types to exclude."
+)
+parser$add_argument("--include_regions",
+  default = NULL,
+  type = "character",
+  help = "Regions to include in testing."
+)
+parser$add_argument("--background_peaks",
+  default = "per_patient",
+  type = "character",
+  help = "Compute motif deviations with background peaks samples from all cells or at per patient level. Options include: all_cells, per_patient."
+)
+parser$add_argument("--TFs_of_interest",
+  default = "misc/data/Neuronal_TF.csv",
+  type = "character",
+  help = "TFs of interest."
+)
+parser$add_argument("--methods",
+  default = "wilcoxon",
+  type = "character",
+  help = "Methods to use for identifying marker peaks. Options include: 'DiffLMM', 'wilcoxon', 'ttest', 'binomial'."
+)
+parser$add_argument("--plot_dir",
+  default = "10_ArchR/Plots",
+  type = "character",
+  help = "Output directory for plots."
+)
+parser$add_argument("--expression_matrix",
+  default = "multiome_results/TF_exp_mtx_top_up.csv",
+  type = "character",
+  help = "Expression matrix."
+)
+args <- parser$parse_args()
+
+args$output_dir <- args$input
+plot_dir <- args$plot_dir
+
+log_info("Loading TF deviations...")
+all_patient_obj <- readRDS(paste0(plot_dir, "/all_patient_obj.rds"))
+merged_matrix <- do.call(rbind, all_patient_obj)
+head(merged_matrix)
+
+# Load archR project
+archr_proj <- loadArchRProject(curr_proj_dir)
+cell_type_column <- paste0("Seurat_", args$celltype_column)
+patient_column <- paste0("Seurat_", args$patient_column)
+region_column <- paste0("Seurat_", args$region_column)
+confidence_column <- paste0("Seurat_", args$confidence_column)
+
+# Method: TF with high deviation from ChromVAR in inv high - prog and high correlation to gene expression
+log_info("Step 1: Identifying correlated TF motifs and TF expression...")
+corGEM_MM <- correlateMatrices(
+    ArchRProj = archr_proj,
+    useMatrix1 = "GeneExpressionMatrix",
+    useMatrix2 = "MotifMatrix",
+    reducedDims = "LSI_Combined"
+)
+fwrite(as.data.frame(corGEM_MM), paste0(plot_dir, "/corGEM_MM.csv"))
+corGEM_MM <- fread(paste0(plot_dir, "/corGEM_MM.csv"))
+
+log_info("Step 2: Identifying Deviant TF Motifs...")
+if (args$background_peaks == "all_cells") {
+  log_info("Using all_cells background peaks...")
+  seGroupMotif <- getGroupSE(ArchRProj = archr_proj, useMatrix = "MotifMatrix", groupBy = "Seurat_CCI_CellClass_L2_2")
+  seZ <- seGroupMotif[rowData(seGroupMotif)$seqnames=="z",]
+
+  # Identify the maximum delta in z-score between Invasive-high OPC/NPC1 and Progenitor_like
+  head(assay(seZ))
+  rowData(seZ)$Inv_delta <- assay(seZ)[, "Invasive-high OPC/NPC1"] - assay(seZ)[, "Progenitor-like"]
+
+  log_info("Step 3: Add maximum delta deviation to the correlation data frame...")
+  corGEM_MM$Inv_delta <- as.numeric(rowData(seZ)[match(corGEM_MM$MotifMatrix_name, rowData(seZ)$name), "Inv_delta"])
+} else if (args$background_peaks == "per_patient") {
+  log_info("Using per_patient background peaks...")
+  all_patient_obj <- readRDS(paste0(plot_dir, "/all_patient_obj.rds"))
+  merged_matrix <- do.call(rbind, all_patient_obj)
+  head(merged_matrix)
+
+  # cell type annotation
+  cell_annotation <- getCellColData(archr_proj, select = c("Seurat_CCI_CellClass_L2_2")) |>
+    as.data.frame() |>
+    rownames_to_column(var = "CellID")
+  head(cell_annotation)
+
+  Inv_delta_mean <- merged_matrix |> 
+    as.data.frame() |>
+    rownames_to_column(var = "CellID") |>
+    mutate(sample = sub("#.*", "", CellID),
+          patient = sub("_.*", "", sample)) |>
+    left_join(cell_annotation, by = "CellID") |>
+    filter(Seurat_CCI_CellClass_L2_2 %in% c("Invasive-high OPC/NPC1", "Progenitor-like")) |>
+    group_by(patient, Seurat_CCI_CellClass_L2_2) |>
+    dplyr::select(-CellID) |>
+    summarise_all(mean) |>
+    ungroup() |>
+    group_by(Seurat_CCI_CellClass_L2_2) |>
+    dplyr::select(-patient) |>
+    summarise_all(mean) |>
+    ungroup() |>
+    tidyr::pivot_longer(cols = -Seurat_CCI_CellClass_L2_2, names_to = "TF", values_to = "Mean") |>
+    tidyr::pivot_wider(names_from = Seurat_CCI_CellClass_L2_2, values_from = Mean) |>
+    mutate(Inv_delta = `Invasive-high OPC/NPC1` - `Progenitor-like`) 
+
+  log_info("Step 3: Add maximum delta deviation to the correlation data frame...")
+  corGEM_MM$Inv_delta <- as.numeric(Inv_delta_mean$Inv_delta[match(corGEM_MM$MotifMatrix_name, Inv_delta_mean$TF)])
+}
+
+# Filter out duplicated TFs
+corGEM_MM <- corGEM_MM[order(abs(corGEM_MM$cor), decreasing = TRUE), ]
+corGEM_MM <- corGEM_MM[which(!duplicated(gsub("\\-.*","",corGEM_MM$MotifMatrix_name))), ]
+
+# TF to label in the plot
+high_SCENIC_TF <- motifs_df$TF[motifs_df$Subgroup == "Invasive-high OPC/NPC1"]
+high_SCENIC_TF <- paste0(high_SCENIC_TF, "_")
+
+low_SCENIC_TF <- motifs_df$TF[motifs_df$Subgroup == "Differentiated-like"]
+low_SCENIC_TF <- paste0(low_SCENIC_TF, "_")
+low_SCENIC_TF <- sort(low_SCENIC_TF)
+
+# NPC/OPC markers
+NPC_OPC_markers <- c("SOX4", "SOX11", "OLIG1", "ETV1")
+NPC_OPC_markers <- paste0(NPC_OPC_markers, "_")
+
+# Manual invasive markers
+manual_inv_makers <- c("OLIG2", "MEOX2", "NKX6-2", "ASCL1", "SOX4", "TCF4", "ZEB1", "ZEB2", "E2F1", "ETV1", "HOXD3", "MEIS1", "SREBF2", "CPEB1", "E2F2", "HOXB3")
+manual_inv_makers <- paste0(manual_inv_makers, "_")
+
+# AP-1 family TFs
+AP1_TF <- c("FOS", "FOSB", "FOSL1", "FOSL2", "FOSL2", "JUN", "JUNB", "JUND")
+
+# Motifs to highlight in ChromVAR
+# Positive_TF <- corGEM_MM$MotifMatrix_name[corGEM_MM$cor > 0 & corGEM_MM$maxDelta > quantile(corGEM_MM$maxDelta, 0.9)]
+Positive_TF <- corGEM_MM$MotifMatrix_name[corGEM_MM$cor > 0 & corGEM_MM$Inv_delta > quantile(corGEM_MM$Inv_delta, 0.95)]
+Positive_TF <- Positive_TF[!is.na(Positive_TF)] # remove NA
+Positive_TF_name <- substr(Positive_TF, 1, regexpr("_", Positive_TF) - 1) # remove number after _ in the name
+Positive_TF_name <- paste0(Positive_TF_name, "_")
+
+# Find high_SCENIC_TF intersect with Positive_TF
+motifs_to_plot <- high_SCENIC_TF[high_SCENIC_TF %in% Positive_TF_name]
+
+# Find TFs in each category
+high_SCENIC_TF_to_plot <- high_SCENIC_TF[!sapply(high_SCENIC_TF, function(x) any(sapply(motifs_to_plot, function(y) grepl(y, x))))] # Identified in SCENIC but not in ChromVAR
+high_SCENIC_TF_to_plot <- corGEM_MM$MotifMatrix_name[sapply(corGEM_MM$MotifMatrix_name, function(x) any(sapply(high_SCENIC_TF_to_plot, function(y) grepl(y, x))))]
+manual_inv_makers_to_plot <- manual_inv_makers[!sapply(manual_inv_makers, function(x) any(sapply(motifs_to_plot, function(y) grepl(y, x))))] # Identified in SCENIC but not in ChromVAR
+manual_inv_makers_to_plot <- corGEM_MM$MotifMatrix_name[sapply(corGEM_MM$MotifMatrix_name, function(x) any(sapply(manual_inv_makers_to_plot, function(y) grepl(y, x))))]
+motifs_to_plot <- Positive_TF[sapply(Positive_TF, function(x) any(sapply(motifs_to_plot, function(y) grepl(y, x))))] # Identified in both SCENIC and ChromVAR
+
+# Label the TFs
+corGEM_MM$TFRegulator <- "Not significant"
+corGEM_MM$TFRegulator[corGEM_MM$MotifMatrix_name %in% high_SCENIC_TF_to_plot] <- "Candidate identified in SCENIC+"
+corGEM_MM$TFRegulator[corGEM_MM$MotifMatrix_name %in% motifs_to_plot] <- "Putative regulator"
+corGEM_MM$TFRegulator[sapply(corGEM_MM$MotifMatrix_name, function(x) any(sapply(NPC_OPC_markers, function(y) grepl(y, x))))] <- "NPC1/OPC markers"
+corGEM_MM$TFRegulator[sapply(corGEM_MM$MotifMatrix_name, function(x) any(sapply(AP1_TF, function(y) grepl(y, x))))] <- "AP-1 family TFs"
+
+# Label only manual_inv_makers_to_plot within "Candidate identified in SCENIC+"
+corGEM_MM$Label <- ifelse(!corGEM_MM$TFRegulator %in% c("Not significant", "Candidate identified in SCENIC+"),
+                          corGEM_MM$MotifMatrix_name,
+                          NA)
+manual_inv_makers_indices <- which(corGEM_MM$MotifMatrix_name %in% manual_inv_makers_to_plot)
+corGEM_MM$Label[manual_inv_makers_indices] <- corGEM_MM$MotifMatrix_name[manual_inv_makers_indices]
+
+# Fix MotifMatrix_name - delete everything after MotifMatrix_name
+corGEM_MM$MotifMatrix_name <- substr(corGEM_MM$MotifMatrix_name, 1, regexpr("_", corGEM_MM$MotifMatrix_name) - 1)
+
+# Visualize the correlation between TF motif and gene expression
+ggplot(data.frame(corGEM_MM), aes(cor, Inv_delta, color = TFRegulator)) +
+  geom_point(data = data.frame(corGEM_MM[corGEM_MM$TFRegulator == "Not significant",]), aes(cor, Inv_delta, color = TFRegulator), size = 1, alpha = 0.75) +
+  geom_point(data = data.frame(corGEM_MM[corGEM_MM$TFRegulator != "Not significant",]), aes(cor, Inv_delta, color = TFRegulator), size = 2) +
+  GBM_theme() +
+  geom_vline(xintercept = 0) + 
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = quantile(corGEM_MM$Inv_delta, 0.95), lty = "dashed", color = "darkgrey") +
+    scale_color_manual(values = c("Not significant"="darkgrey",
+                                "Putative regulator"="#2B7095",
+                                "Candidate identified in SCENIC+" = "#EDAE49FF",
+                                "NPC1/OPC markers"="#7C9EB5",
+                                "AP-1 family TFs"="#C05E00")) +
+  geom_label_repel(data = data.frame(corGEM_MM[!is.na(corGEM_MM$Label), ]),
+                   aes(label = MotifMatrix_name), 
+                   size = 3, 
+                   nudge_x = 0.15, 
+                   nudge_y = 0.15, 
+                   max.overlaps=10) +
+  labs(
+    y = "TF motif accessibility difference between \ninvasive-high OPC/NPC1 and progenitor-like (Δz-score)",
+    x = "Correlation of TF motif accessibility and TF expression"
+  ) +
+  scale_y_continuous(
+    expand = c(0,0), 
+    limits = c(min(corGEM_MM$Inv_delta)*1.05, max(corGEM_MM$Inv_delta)*1.05)
+  ) +
+  scale_x_continuous(
+    expand = c(0,0), 
+    limits = c(-1, 1)
+  ) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank())
+ggsave(paste0(plot_dir, "/corGEM_MM_TF_Regulator_95_new_SCENIC+_highlight_", args$background_peaks, ".pdf"), width = 7, height = 7.5)
+
+ggplot(data.frame(corGEM_MM), aes(cor, Inv_delta, color = TFRegulator)) +
+  geom_point() + 
+  GBM_theme() +
+  geom_vline(xintercept = 0) + 
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = quantile(corGEM_MM$Inv_delta, 0.95), lty = "dashed", color = "darkgrey") +
+  scale_color_manual(values = c("Not significant"="darkgrey",
+                                "Putative regulator"="#D1495BFF",
+                                "Candidate identified in SCENIC+" = "#EDAE49FF",
+                                "NPC1/OPC markers"="#00798CFF",
+                                "AP-1 family TFs"="#C05E00")) +
+  geom_label_repel(data = data.frame(corGEM_MM), aes(label = MotifMatrix_name), size = 3, nudge_x = 0.1, nudge_y = 0.1) +
+  labs(
+    x = "Correlation to gene expression",
+    y = "TF motif accessibility difference between \ninvasive-high OPC/NPC1 and progenitor-like"
+  ) +
+  scale_y_continuous(
+    expand = c(0,0), 
+    limits = c(min(corGEM_MM$Inv_delta)*1.05, max(corGEM_MM$Inv_delta)*1.05)
+  ) +
+  scale_x_continuous(
+    expand = c(0,0), 
+    limits = c(-1, 1)
+  ) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank())
+ggsave(paste0(plot_dir, "/corGEM_MM_TF_Regulator_all_new_SCENIC+", args$background_peaks, ".pdf"), width = 8, height = 8)
+
+# cell type annotation
+cell_annotation <- getCellColData(archr_proj, select = c(cell_type_column)) |>
+  as.data.frame() |>
+  rownames_to_column(var = "CellID")
+head(cell_annotation)
+
+merged_matrix <- merged_matrix |>
+  as.data.frame() |>
+  rownames_to_column(var = "CellID") |>
+  mutate(
+    sample = sub("#.*", "", CellID),
+    patient = sub("_.*", "", sample)
+  ) |>
+  left_join(cell_annotation, by = "CellID") |>
+  mutate(celltype = get(cell_type_column)) |>
+  dplyr::select(-cell_type_column)
+colnames(merged_matrix) <- gsub("_[0-9]*", "", colnames(merged_matrix))
+merged_matrix <- merged_matrix |>
+  tidyr::pivot_longer(cols = -c(CellID, sample, patient, celltype), names_to = "TF", values_to = "ChromVar")
+
+# motif to plot for ChromVAR
+motifs_to_plot <- c("TCF12", "TCF4", "TCF3", "ASCL1", "ZEB1", "FOSL1", "FOSL2")
+
+df_neuronal <- merged_matrix |>
+  filter(TF %in% motifs_to_plot)
+
+# Load the expression data
+exp_mat <- fread(args$expression_matrix)
+exp_mat$archr_cellnames <- sub("-1.*", "", exp_mat$archr_cellnames)
+
+for (TF_name in unique(df_neuronal$TF)) {
+  log_info("Currently analyzing: ", TF_name)
+  curr_TF_chromVAR <- df_neuronal[df_neuronal$TF == TF_name, ] %>%
+    mutate(archr_cellnames = CellID)
+  curr_TF_chromVAR$archr_cellnames <- sub("-1.*", "", curr_TF_chromVAR$archr_cellnames)
+  curr_TF_exp <- exp_mat %>%
+    filter(archr_cellnames %in% curr_TF_chromVAR$archr_cellnames) %>%
+    dplyr::select(archr_cellnames, TF_name)
+  curr_df <- merge(curr_TF_chromVAR, curr_TF_exp, by = "archr_cellnames") %>%
+    mutate(
+      Sample = sub("#.*", "", archr_cellnames),
+      Barcode = sub(".*#", "", archr_cellnames),
+      Patient = sub("_.*", "", Sample),
+      x = celltype
+    )
+
+  curr_df <- curr_df %>%
+    group_by(Patient, x) %>%
+    dplyr::summarise(
+      mean_gex = mean(get(TF_name)),
+      mean_acc = mean(ChromVar),
+      n_cell = n()
+    ) %>%
+    ungroup() %>%
+    filter(n_cell > 10) # filter out low patient
+
+  curr_df <- curr_df %>%
+    group_by(x) %>%
+    dplyr::summarise(
+      mean_cell_type_gex = mean(mean_gex),
+      mean_cell_type_acc = mean(mean_acc),
+      total_n = sum(n_cell)
+    )
+
+  # Rename cell type
+  curr_df <- curr_df %>%
+    mutate(x = case_when(
+      x == "Malignant_NPC1" ~ "NPC1-like",
+      x == "Malignant_NPC2" ~ "NPC2-like",
+      x == "Malignant_OPC" ~ "OPC-like",
+      x == "Invasive-high_OPC_NPC1" ~ "Invasive-high OPC/NPC1",
+      x == "Malignant_AC" ~ "AC-like",
+      x == "Malignant_MES_AST" ~ "MES-AC-like",
+      x == "Malignant_MES_INT" ~ "MES-INT-like",
+      x == "Malignant_MES_HYP" ~ "MES-HYP-like"
+    ))
+
+  color_palette <- c(
+    "NPC1-like" = "#86CCE8",
+    "NPC2-like" = "#ADD7E5",
+    "OPC-like" = "#AECFA5",
+    "AC-like" = "#DFB63B",
+    "MES-AC-like" = "#F37F72",
+    "MES-INT-like" = "#B02425",
+    "MES-HYP-like" = "#F1634B",
+    "Invasive-high OPC/NPC1" = "#2B7095"
+  )
+
+  # Plot with legend
+  ggplot(curr_df, aes(x = mean_cell_type_gex, y = mean_cell_type_acc)) +
+    geom_point(aes(size = total_n, color = "#000000", fill = x), shape = 21, stroke = 1) + # Set stroke and shape here
+    geom_text_repel(aes(label = x), size = 5) +
+    scale_color_manual(values = color_palette) + # Use custom color palette
+    scale_fill_manual(values = color_palette) + # Use custom color palette for fill
+    labs(x = "Normalized mean gene expression", y = "Motif accessibility (mean z-score)") +
+    GBM_theme() +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank()
+    ) +
+    ggtitle(TF_name)
+  ggsave(paste0(plot_dir, "/Neuronal_motif_deviation_score_scatterplot_legend_", TF_name, method, ".pdf"), width = 4.5, height = 5.5)
+}
+
+# ---------------------------------------------------------------------------- #
+#                                  Figure S6b                                  #
+# ---------------------------------------------------------------------------- #
+pacman::p_load(
+  argparse,
+  varhandle,
+  log4r,
+  stringr,
+  dplyr,
+  data.table,
+  reshape,
+  ggpubr,
+  tibble,
+  ggrepel,
+  ggplot2,
+  GaitiLabUtils,
+  GBMutils,
+  Seurat,
+  Signac,
+  ggpointdensity,
+  hexbin
+)
+
+# ----------------------------Load packages---------------------------- #
+parser <- ArgumentParser(description = "Pipeline for merging GBM3D data.")
+parser$add_argument("-i", "--input",
+  type = "character",
+  default = "multiome_results/16_GBM3D/Seurat",
+  help = "Input directory GBM3D data"
+)
+parser$add_argument("-o", "--output_dir",
+  type = "character",
+  default = "multiome_results/16_GBM3D/Merged",
+  help = "Output directory for GBM3D."
+)
+parser$add_argument("--TFs_of_interest",
+  type = "character",
+  default = "TCF12,TCF3,TCF4,ASCL1,ZEB1,FOSL1",
+  help = "Transcription factors of interest"
+)
+args <- parser$parse_args()
+print("Arguments loaded")
+
+# Load the Seurat object
+curr_seurat_data <- readRDS(paste0(args$output_dir, "/GBM3D.rds"))
+
+plot_cor_TF_and_inv_per_cell <- function(curr_seurat_data, tf_name, chromVar_names_path, plot_dir) {
+  # Get invasive signature score at single cell level
+  invasive_score <- curr_seurat_data[[]] %>%
+    select(invasive_score) %>%
+    rownames_to_column(var = "Cell_id")
+
+  # ChromVar score for the given transcription factor
+  chromVar_matrix <- GetAssayData(object = curr_seurat_data, assay = "ChromVar")
+  chromVar_matrix <- chromVar_matrix %>%
+    as.matrix() %>%
+    t()
+
+  # Split the matrix into two parts
+  chromVar_matrix_1 <- chromVar_matrix[, 1:(ncol(chromVar_matrix) / 2)]
+  chromVar_matrix_2 <- chromVar_matrix[, (ncol(chromVar_matrix) / 2 + 1):ncol(chromVar_matrix)]
+
+  # Check if the ChromVar object has the TF names of interest
+  if (length(grep("TCF12", colnames(chromVar_matrix_2))) == 0) {
+    log_info("Need to correct the ChromVar TF names...")
+    # Function to find the best match where row name is a substring of a longer name in chromVar_names
+    match_names <- function(target_names, full_names) {
+      sapply(target_names, function(name) {
+        matches <- grep(paste0("^", name, "(_|$)"), full_names, value = TRUE) # Find matches using regex
+        if (length(matches) > 0) matches[1] else NA # Return the first match or NA if none
+      })
+    }
+
+    # ChromVar TF names
+    chromVar_names <- fread(chromVar_names_path)$chromVar_names
+
+    # Apply the matching function to get matched names from chromVar_names for each rowname
+    matched_names <- match_names(colnames(chromVar_matrix_2), chromVar_names)
+    valid_matches <- matched_names[!is.na(matched_names)]
+    chromVar_matrix_2 <- chromVar_matrix_2[, colnames(chromVar_matrix_2) %in% names(valid_matches)]
+    colnames(chromVar_matrix_2) <- valid_matches[match(colnames(chromVar_matrix_2), names(valid_matches))]
+    names(colnames(chromVar_matrix_2)) <- NULL
+  }
+
+  # Match the order of the ChromVar matrix
+  colnames(chromVar_matrix_1) <- gsub("-", "_", colnames(chromVar_matrix_1)) # replace - with underscore
+  common_names <- intersect(colnames(chromVar_matrix_1), colnames(chromVar_matrix_2))
+  chromVar_matrix_1 <- chromVar_matrix_1[, common_names]
+  chromVar_matrix_2 <- chromVar_matrix_2[, common_names]
+
+  # Add the two matrices
+  chromVar_matrix <- chromVar_matrix_1 + chromVar_matrix_2
+
+  chromVar_matrix <- chromVar_matrix %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "Cell_id") %>%
+    left_join(invasive_score, by = c("Cell_id" = "Cell_id"))
+
+  # Check if the TF is present in the ChromVar matrix
+  tf_name_matrix <- grep(tf_name, colnames(chromVar_matrix), value = TRUE)
+  if (length(tf_name_matrix) == 0) {
+    print(paste0("Transcription factor ", tf_name, " not found in ChromVar matrix"))
+  } else {
+    # In case there is more than one TF
+    for (i in 1:length(tf_name_matrix)) {
+      df <- chromVar_matrix[, c("Cell_id", tf_name_matrix[i], "invasive_score")]
+      colnames(df) <- c("Cell_id", "ChromVar", "invasive_score")
+
+      # Plot
+      ggplot(df, aes(x = invasive_score, y = ChromVar)) +
+        geom_hex(bins = 100) +
+        geom_smooth(method = "lm", se = TRUE, color = "black", linetype = "solid") +
+        stat_cor(method = "spearman") +
+        labs(
+          x = "Invasive signature score",
+          y = paste0(tf_name, " motif binding site"),
+          subtitle = tf_name_matrix[i]
+        ) +
+        GBM_theme() +
+        theme(
+          legend.key.height = unit(0.25, "cm"), # Adjust height of legend key
+          legend.key.width = unit(1, "cm")
+        ) + # Adjust width of legend key
+        scale_fill_gradient(limits = c(0, 100))
+
+      ggsave(paste0(plot_dir, "/Correlation_invasive_signature_ChromVar_per_cell_", tf_name_matrix[i], ".pdf"), width = 4, height = 5)
+    }
+  }
+}
+
+# Plot for each TF
+for (tf_name in TFs_to_plot) {
+  plot_cor_TF_and_inv_per_cell(curr_seurat_data, tf_name, "misc/data/chromVar_names.csv", plot_dir)
+}
