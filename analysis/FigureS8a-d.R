@@ -55,7 +55,6 @@ normalize_log_transform <- function(mat) {
     return(scaled_x)
   })
   
-  
   log_matrix <- log2(1 + scaled_matrix)
   
   return(log_matrix)
@@ -75,7 +74,7 @@ cnvInference <- function(obj,
     matrix_name = "cnv_matrix") {
 
   # Get CpG coverage matrix 
-  obj@genomeMatrices[["raw_cpg_cov"]] <- makeWindows_cov(
+  obj@genomeMatrices[["cov"]] <- makeWindows_cov(
     obj,
     type = "CG",
     genes = NULL,
@@ -89,10 +88,7 @@ cnvInference <- function(obj,
     nmin = nmin,
     save = FALSE)
 
-  print(head(obj@genomeMatrices[["raw_cpg_cov"]]))
-  saveRDS(obj, file.path(obj_dir, "cnv_test.rds"))
-
-  sum_matrix <- obj@genomeMatrices[["raw_cpg_cov"]]
+  sum_matrix <- obj@genomeMatrices[["cov"]]
 
   sum_matrix <- as.data.frame(normalize_log_transform(sum_matrix))
 
@@ -138,7 +134,6 @@ cnvInference <- function(obj,
     select(-chr)
 
   windows <- rownames(ratio_matrix)
-  print(windows)
 
   # Transpose so rows are cells and columns are genomic windows
   cnv_matrix <- as.data.frame(t(ratio_matrix))
