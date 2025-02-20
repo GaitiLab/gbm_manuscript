@@ -31,12 +31,16 @@ seurat_object <- readRDS(path_to_seurat_object)
 
 # Prepare groups for comparison
 seurat_object$Region <- ifelse(seurat_object$Region == "PT", "PT", "Rest") # Sample level region comparisons
-seurat_object <- subset(seurat_object, subset = is_malignant_confident == TRUE) # high confidence malignant cells
-seurat_object <- subset(seurat_object, subset = Patient %in% c("6237", "6245", "6467", "6419")) # Patients with matched PT and Tumor samples that have malignant cells
+seurat_object <- subset(seurat_object, subset = is_malignant_confident == TRUE) # Stringent 
+seurat_object <- subset(seurat_object, subset = Patient %in% c("6237", "6245", "6467", "6419", "6514", "6425")) # Matched patients
 seurat_object <- subset(seurat_object, subset = CellClass_L3 %in% c("Malignant_OPC", "Malignant_NPC1")) # Subset for cell types of interest
 
 # Convert to SingleCellExperiment
 counts <- seurat_object@assays$RNA@counts
+
+# Protein coding genes only
+protein_coding_genes <- read.csv("/cluster/projects/gaitigroup/Users/Benson/Parsebio/data/ensembl_protein_coding_genes.csv")
+counts <- counts[rownames(counts) %in% protein_coding_genes$hgnc_symbol,]
 
 metadata <- seurat_object[[]] 
 sce <- SingleCellExperiment(assays = list(counts = counts), 
@@ -70,7 +74,7 @@ df <- plyr::join(df, metadata,
 index <- match(colnames(aggr_counts), df$Sample)
 df <- df[index, , drop = FALSE]
 
-write.csv(df, file.path(plot_dir, "samples_tested.csv"))
+print(df)
 
 # Converting col metadata to factors
 df$Patient <- factor(df$Patient, levels = unique(df$Patient))
@@ -81,7 +85,7 @@ deseq <- DESeqDataSetFromMatrix(aggr_counts,
                                 colData = df,
                                 design = ~ Patient + Region)
 
-keep <- rowSums(counts(deseq) >= 5) >= 6 # Set to min(#sample in group 1, #sample in group 2). 
+keep <- rowSums(counts(deseq) >= 5) >= 12 # Set to min(#sample in group 1, #sample in group 2). 
 deseq <- deseq[keep, ]
 
 genes_used <- rownames(deseq)
@@ -114,27 +118,25 @@ res_tbl <- res %>%
 de_results <- as.data.frame(res_tbl)
 
 # Thresholds
-fc <- log2(2)
+fc <- log2(1.5)
 p_valadj <- 0.05
 
 de_results$diffexpressed <- "NO"
-de_results$diffexpressed[de_results$avg_logFC > fc & de_results$FDR < p_valadj] <- "UP"
-de_results$diffexpressed[de_results$avg_logFC < -fc & de_results$FDR < p_valadj] <- "DOWN"
-de_results$de_label <- NA
-de_results$de_label[de_results$diffexpressed != "NO"] <- de_results$Gene[de_results$diffexpressed != "NO"]
+de_results$diffexpressed[de_results$log2FoldChange > fc & de_results$padj < p_valadj] <- "UP"
+de_results$diffexpressed[de_results$log2FoldChange < -fc & de_results$padj < p_valadj] <- "DOWN"
 
-rownames(de_results) <- de_results$Gene
+rownames(de_results) <- de_results$gene
 
 # Label genes
 up <- read.csv("gene_lists/invasivity.csv") # Venkataramani 2022
 up <- up %>% filter(direction == "Anticorrelated")
 up <- up$Gene
-custom_labs_up <- up[up %in% (de_results$Gene[de_results$diffexpressed == "UP"])]
+custom_labs_up <- up[up %in% (de_results$gene[de_results$diffexpressed == "UP"])]
 
 down <- read.csv("gene_lists/hai_connectivity.csv") # Hai 2024
 down <- down %>% filter(direction == "Up")
 down <- down$Gene
-custom_labs_down <- down[down %in% (de_results$Gene[de_results$diffexpressed == "DOWN"])]
+custom_labs_down <- down[down %in% (de_results$gene[de_results$diffexpressed == "DOWN"])]
 
 custom_labs <- c(custom_labs_up)
 
@@ -149,15 +151,23 @@ df$diffexpressed <- case_when(
 df$diffexpressed <- factor(df$diffexpressed, levels = c("NO", "YES", "Invasivity (Venkataramani et al.)", "Connectivity (Hai et al.)"))
 df$sort <- ifelse(df$diffexpressed %in% c("Invasivity (Venkataramani et al.)", "Connectivity (Hai et al.)"), 1, 0)
 df$alpha <- ifelse(df$diffexpressed %in% c("Invasivity (Venkataramani et al.)", "Connectivity (Hai et al.)"), 1, 0.05)
-df$label <- ifelse(df$diffexpressed == "Invasivity (Venkataramani et al.)", rownames(df), NA)
+df$label_1 <- case_when(
+  df$diffexpressed == "Invasivity (Venkataramani et al.)" ~ rownames(df),
+  TRUE ~ NA
+)
+df$label_2 <- case_when(
+  df$gene %in% c("CHI3L1", "GAP43", "ANXA2") ~ rownames(df),
+  TRUE ~ NA
+)
 
 df <- df %>% arrange(sort)
-p <- ggplot(df, aes(x = avg_logFC, y = -log10(FDR))) +
+p <- ggplot(df, aes(x = log2FoldChange, y = -log10(padj))) +
   geom_point(aes(colour = diffexpressed, alpha = alpha), size = 3.5, stroke = NA) +
   scale_colour_manual(values = c("black", "black", "darkorange", "red4")) +
-  geom_label_repel(aes(label = label), size = 3, colour = "darkorange", na.rm = TRUE, nudge_x = 2, nudge_y = 1) +
-  geom_vline(xintercept = 1, linetype = "dashed") +
-  geom_vline(xintercept = -1, linetype = "dashed") +
+  geom_label_repel(aes(label = label_1), size = 3, na.rm = TRUE, colour = "darkorange", nudge_x = 1, nudge_y = 1) +
+  geom_label_repel(aes(label = label_2), size = 3, na.rm = TRUE, colour = "red4", nudge_x = 0.1, nudge_y = 0.5) +
+  geom_vline(xintercept = fc, linetype = "dashed") +
+  geom_vline(xintercept = -fc, linetype = "dashed") +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
   (theme_foundation(base_size = 14, base_family = "Helvetica") 
     + theme(
@@ -186,8 +196,8 @@ p <- ggplot(df, aes(x = avg_logFC, y = -log10(FDR))) +
             strip.background = element_rect(colour = "#ffffff", fill = "#ffffff"),
             strip.text = element_text(face = "bold", size = rel(1.1))
         )) +
-  ylim(c(0,25)) +
-  xlim(c(-4,4)) +
+  ylim(c(0,17)) +
+  xlim(c(-3,3)) +
   xlab(bquote(~Log[2] ~ FoldChange)) +
   ylab(bquote(~-Log[10] ~ italic(FDR)))
 ggsave(filename = "volcano.pdf", path = plot_dir, height = 10, width = 7)

@@ -147,12 +147,11 @@ build_adjacency_table <- function(spot_pos_type) {
 }
 
 # Load DEGs
-
-degs <- read.csv("/de_results.csv")
+degs <- read.csv("de_results.csv")
 degs_up <- degs %>% 
-  filter(log2FoldChange > 1 & padj < 0.05)
+  filter(log2FoldChange > log2(1.5) & padj < 0.05)
 degs_dn <- degs %>% 
-  filter(log2FoldChange < -1 & padj < 0.05)
+  filter(log2FoldChange < -log2(1.5) & padj < 0.05)
 degs_list <- list(degs_up$gene, degs_dn$gene)
 
 # ------------------------- Load Greenwald 2024 data ------------------------- #
@@ -288,7 +287,7 @@ greenwald_neuron <- foreach(sample = greenwald_neuron, .packages = c("dplyr")) %
   adj_table <- build_adjacency_table(spot_pos_type)
   neuron_barcodes <- rownames(spot_pos_type)[spot_pos_type$mp == "neuron"]
   
-  for (radius in seq(1, max_rad)) {
+  for (radius in seq(3, max_rad)) {
     neighbours_table <- find_neighbours_in_window(adj_table, radius)
     neuron_neighbours <- unique(unlist(neighbours_table[names(neighbours_table) %in% neuron_barcodes]))
     sample[[paste0("neuron_neighbour_", radius)]] <- ifelse(rownames(sample[[]]) %in% neuron_neighbours, TRUE, FALSE)
@@ -296,50 +295,7 @@ greenwald_neuron <- foreach(sample = greenwald_neuron, .packages = c("dplyr")) %
   return(sample)
 }
 
-print(greenwald_neuron)
-
-for (sample in greenwald_neuron) {
-  p <- SpatialDimPlot(sample, group.by = "neuron_neighbour_3", image.alpha = 0)
-  ggsave(filename = paste0(unique(sample$sample), "neuron_neighbour_3_dimplot.pdf"), path = plot_dir)
-}
-
 merged_greenwald_neuron <- merge(greenwald_neuron[[1]], greenwald_neuron[-1])
-
-# Testing if relative abundance of inv-high opc/npc1 is greater within defined radii
-plot_df <- merged_greenwald_neuron[[]] %>% 
-  filter(mp %in% c("OPC", "NPC") & cna_bin %in% c("malignant", "mix_high")) 
-write.csv(plot_df, file.path(plot_dir, "plot_df.csv"))
-
-plot_df <- plot_df %>% filter(org1 == "dis")
-
-dfs <- lapply(seq(1, max_rad), function(rad) {
-  n_rad <- paste0("neuron_neighbour_", rad)
-  df <- plot_df %>%
-    group_by_at(c("sample", n_rad)) %>%
-    mutate(total = n()) %>%
-    ungroup() %>% 
-    group_by_at(c("sample", n_rad, "mp_l2")) %>%
-    summarise(frac = n() / dplyr::first(total), .groups = "drop") %>%
-    select(sample, mp_l2, n_rad, frac)
-  df$radius <- rad
-  return (df)
-})
-
-plot_df <- rbindlist(dfs)
-colnames(plot_df) <- c("sample","mp_l2", "in_window", "fraction", "radius")
-plot_df$in_window <- factor(plot_df$in_window, levels = c(TRUE, FALSE))
-plot_df$radius <- factor(plot_df$radius, levels = seq(1, max_rad))
-
-plot_df <- plot_df %>% 
-  filter(in_window == TRUE)
-
-p <- ggplot(plot_df, aes(x = mp_l2, y = fraction, fill = mp_l2)) +
-  geom_boxplot() +
-  geom_point(position = "identity") +
-  theme_classic() +
-  facet_wrap(.~radius) +
-  stat_compare_means(label = "p.format", method = "wilcox.test", ref.group = "inv_dn_stem")
-ggsave(filename = "invasive_sig_neuron_colocal_rad_categorical.pdf", path = plot_dir)
 
 # ---------------------------------------------------------------------------- #
 #                          Assess over-representation                          #
@@ -457,11 +413,13 @@ plot_df <- full_join(plot_df, pct_signif, by = "mp_l2")
 
 plot_df <- plot_df %>% arrange(-avg_relative_abund) %>% mutate(rank = order(-avg_relative_abund))
 plot_df$mp_l2 <- ifelse(plot_df$mp_l2 == "Malignant_inv_up_stem", "Invasive-high OPC/NPC", plot_df$mp_l2)
-plot_df$mp_l2 <- ifelse(plot_df$mp_l2 == "Malignant_inv_dn_stem", "Invasive-low OPC/NPC", plot_df$mp_l2)
+plot_df$mp_l2 <- ifelse(plot_df$mp_l2 == "Malignant_inv_dn_stem", "Progenitor-like", plot_df$mp_l2)
 plot_df$mp_l2 <- ifelse(plot_df$mp_l2 == "neuron", "Neuron", plot_df$mp_l2)
 plot_df$mp_l2 <- ifelse(plot_df$mp_l2 == "Malignant_MES_Hyp", "MES-Hypoxia", plot_df$mp_l2)
-labels <- plot_df %>% filter(mp_l2 %in% c("Neuron", "Invasive-high OPC/NPC", "MES-Hypoxia", "Invasive-low OPC/NPC"))
+labels <- plot_df %>% filter(mp_l2 %in% c("Neuron", "Invasive-high OPC/NPC", "MES-Hypoxia", "Progenitor-like"))
 plot_df$colour <- ifelse(grepl("^Malignant", plot_df$mp_l2), "Malignant", "Non-malignant")
+plot_df$colour <- ifelse(plot_df$mp_l2 == "Progenitor-like", "Malignant", plot_df$colour)
+plot_df$colour <- ifelse(plot_df$mp_l2 == "MES-Hypoxia", "Malignant", plot_df$colour)
 plot_df$colour <- ifelse(plot_df$mp_l2 == "Invasive-high OPC/NPC", "Invasive-high OPC/NPC", plot_df$colour)
 plot_df$colour <- ifelse(plot_df$mp_l2 == "Neuron", "Neuron", plot_df$colour)
 plot_df$colour <- factor(plot_df$colour, levels = c("Malignant", "Non-malignant", "Neuron", "Invasive-high OPC/NPC"))
@@ -471,7 +429,7 @@ p <- ggplot(plot_df, aes(x = rank, y = avg_relative_abund)) +
   geom_point(aes(size = pct_signif, stroke = 2), shape = 21, colour = "black") +
   scale_shape_identity() +
   geom_label_repel(data = labels, aes(label = mp_l2), size = 6, force = 3, max.overlaps = 12, label.size = 0.75, nudge_x = 2, nudge_y = 0.25) + 
-  scale_colour_manual(values = c("#C6D8FF","#ffe096", "green4", "orange")) +
+  scale_colour_manual(values = c("#7BB7AD","#AA9F8B", "#CCB883", "#2B7095")) +
   theme_classic() +
   ylab("Scaled Relative Abundance") +
   xlab("Rank") +

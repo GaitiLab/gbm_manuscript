@@ -28,114 +28,142 @@ plot_dir <- paste0(output_dir, "/path_to_output_directory")
 if(!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S3a                                  #
+#                                    Fig S3a                                   #
 # ---------------------------------------------------------------------------- #
+# consensus by platform
 
-# Load gene sets
+# Multiome
+multiome_factors <- read.table("multiome_rna.spectra.k_7.dt_0_5.consensus.txt")
 
-invasivity <- read.csv("/invasivity.csv") # Venkataramani 2022 
-garofano <- read.csv("/garofano.csv") # Garofano 2021
-neftel_markers <- read.csv(file.path("/Neftel_gene_list.csv")) # Neftel 2019
+multiome_geps <- lapply(seq(1,length(rownames(multiome_factors))), function(gep_num) {
+  gep <- as.vector(multiome_factors[gep_num,])
+})
 
-invasivity_up <- invasivity %>% 
-  filter(direction == "Anticorrelated")
-invasivity_up <- list(invasivity_up$Gene)
-names(invasivity_up) <- "Invasivity_up"
+names(multiome_geps) <- paste0("MultiomeFactor", seq(1, length(multiome_geps)))
 
-garofano <- as.vector(garofano)
+# Parsebio
+parse_factors <- read.table("parsebio_rna.spectra.k_7.dt_0_5.consensus.txt")
 
-neftel_gene_list <- list()
-for(i in 1:nrow(neftel_markers)) {
-neftel_gene_list[[toString(neftel_markers[i,"Cell"])]] <- append(neftel_gene_list[[toString(neftel_markers[i,"Cell"])]],toString(neftel_markers[i, "Gene"]))
+parse_geps <- lapply(seq(1,length(rownames(parse_factors))), function(gep_num) {
+  gep <- as.vector(parse_factors[gep_num,])
+})
+
+names(parse_geps) <- paste0("ParseFactor", seq(1, length(parse_geps)))
+
+filtered_geps <- list()  
+for (i in seq_along(parse_geps)) {
+  for (j in seq_along(multiome_geps)) {
+    parse_gep <- parse_geps[[i]]
+    multiome_gep <- multiome_geps[[j]]
+    print(cosine(as.numeric(parse_gep), as.numeric(multiome_gep)))
+    if (cosine(as.numeric(parse_gep), as.numeric(multiome_gep)) >= 0.5) { 
+      filtered_geps[[names(parse_geps)[i]]] <- parse_geps[[i]]
+      filtered_geps[[names(multiome_geps)[j]]] <- multiome_geps[[j]]
+    }
+  }
 }
-cell_type <- c()
-for(i in 1:length(neftel_gene_list)){
-cell_type <- c(cell_type, paste0("Neftel_", names(neftel_gene_list)[i]))
-}
-names(neftel_gene_list) <- cell_type
+geps <- filtered_geps
 
-markers <- read.csv("consensus_mps_markers.csv", row.names = 1) # load consensus factor markers
-markers <- as.vector(markers)
-names(markers) <- paste0("Factor", seq(5,1))
+sim_mtx <- matrix(nrow = length(geps), ncol = length(geps),
+                         dimnames = list(names(geps), names(geps)))
 
-gene_lists <- c(neftel_gene_list, garofano, invasivity_up, markers)
-
-jaccard_similarity <- function(vec1, vec2) {
-  intersection <- length(intersect(vec1, vec2))
-  union <- length(unique(c(vec1, vec2)))
-  return(intersection / union)
-}
-
-n <- length(gene_lists)
-
-similarity_matrix <- matrix(NA, n, n)
-rownames(similarity_matrix) <- colnames(similarity_matrix) <- names(gene_lists)
-
-for (i in 1:n) {
-  for (j in 1:n) {
-    similarity_matrix[i, j] <- jaccard_similarity(gene_lists[[i]], gene_lists[[j]])
+# Compute the cosine similarity index for each pair of GEPs
+for (i in seq_along(geps)) {
+  for (j in seq_along(geps)) {
+    v_i <- geps[[i]]
+    v_j <- geps[[j]]
+    sim_mtx[i, j] <- cosine(as.numeric(v_i), as.numeric(v_j))
   }
 }
 
-pdf(file = paste0(plot_dir, "/jaccard_matrix.pdf"), width = 10, height = 10)
-pushViewport(viewport(gp = gpar(fontfamily = "Helvetica")))
-heatmap <- Heatmap(similarity_matrix, 
-        name = "Jaccard Similarity", 
-        na_col = "white", 
-        height = nrow(similarity_matrix)*unit(1, "cm"),
-        width = ncol(similarity_matrix)*unit(1, "cm"),
-        col = colorRamp2(c(0, 0.375, 0.75), c("white", "orange", "red")),
-        cluster_rows = FALSE,
-        cluster_columns = FALSE, 
-        show_heatmap_legend = TRUE,
-        show_row_names = TRUE, 
-        show_column_names = TRUE)
-draw(heatmap, newpage = FALSE)
-popViewport()
+clustering <- dendsort(hclust(dist(sim_mtx)), type = "average")
+clusters <- cutree(clustering, k = 5)
+
+similarity_colors <- colorRamp2(c(0.5, 0.65, 0.8), c("white", "#C0DAD7", "#87B5B1"))
+
+# Platform annotation
+stack <- stack(clusters)
+stack$Platform <- case_when(
+  grepl("Parse", stack$ind) ~ "ParseBio",
+  grepl("Multiome", stack$ind) ~ "Multiome"
+)
+platform_colours <- c("#5773CCFF", "#FFB900FF")
+platform_colours <- c("#002A32", "#C4A29E")
+names(platform_colours) <- unique(stack$Platform)
+
+consensus_factor_cols <- brewer.pal(5, "Set3")
+names(consensus_factor_cols) <- unique(stack$values)
+
+annotation_top <- HeatmapAnnotation(`Platform` = stack$Platform[match(colnames(sim_mtx), stack$ind)],
+                                    `Consensus Factor` = stack$values[match(colnames(sim_mtx), stack$ind)],
+                                             col = list(`Platform` = platform_colours, `Consensus Factor` = consensus_factor_cols),
+                                             show_annotation_name = c(TRUE, FALSE),
+                                             annotation_height = unit(0.5, "cm"),
+                                             show_legend = c(TRUE, FALSE),
+                                             gp = gpar(fontsize = 1)
+)
+
+annotation_left <- rowAnnotation(`Consensus Factor` = stack$values[match(colnames(sim_mtx), stack$ind)],
+                                 col = list(`Consensus Factor` = consensus_factor_cols),
+                                 show_annotation_name = c(FALSE),
+                                 annotation_height = unit(0.5, "cm"),
+                                 show_legend = c(FALSE),
+                                 gp = gpar(fontsize = 1)
+                                 )
+
+
+pdf(file = paste0(plot_dir, "/geps.pdf"), width = 10, height = 10)
+Heatmap(sim_mtx, show_row_names = FALSE, show_column_names = FALSE,
+                       height = nrow(sim_mtx)*unit(1, "cm"),
+                       width = ncol(sim_mtx)*unit(1, "cm"),
+                       col = similarity_colors,
+                       name = "Factor-Factor Similarity",
+                       column_title = "", row_title = "",
+                       cluster_rows = clustering,
+                       cluster_columns = clustering,
+                       top_annotation = annotation_top,
+                       left_annotation = annotation_left,
+                       show_row_dend = TRUE,
+                       show_column_dend = TRUE)
+decorate_heatmap_body("Factor-Factor Similarity", {
+  grid.rect(gp = gpar(col = "black", lwd = 2))
+})
 dev.off()
 
-# ---------------------------------------------------------------------------- #
-#                                  Figure S3b                                  #
-# ---------------------------------------------------------------------------- #
+gep_clusters <- split(names(geps), clusters)
+consensus_mps <- lapply(seq(1, length(gep_clusters)), function(i) {
+  cluster <- gep_clusters[[i]]
+  factors <- geps[cluster]
+  genes <- names(factors[[1]])
+  consensus <- map(factors, ~as.numeric(as.character(.))) %>% 
+    reduce(`+`) %>% 
+    `/`(length(factors))
+  names(consensus) <- genes
+  return (consensus)
+})
 
-metadata <- read.csv("metacell_metadata.csv", row.names = 1)
-metadata$Region <- factor(metadata$Region, levels = c("PT", "TE", "TC"))
+consensus_mps <- as.data.frame(consensus_mps)
+colnames(consensus_mps) <- paste0("Factor", seq(length(colnames(consensus_mps)), 1)) 
+write.csv(consensus_mps, file.path(plot_dir, "consensus_mps.csv"))
 
-df <- metadata
-df$Region <- factor(df$Region, levels = c("PT", "TE", "TC"))
-df <- df %>% 
-  select(all_of(c("Region", "Patient", paste0("Factor", seq(5,1))))) %>% 
-  pivot_longer(-c("Region", "Patient"), names_to = "Factor", values_to = "Activation")
-plots <- list()
-for (factor in unique(df$Factor)) {
-  curr_df <- df %>% filter(Factor == factor)
-  plots[[factor]] <- ggplot(curr_df, aes(x = Region, y = Activation, fill = Region)) +
-  geom_boxplot(alpha = 0.9, outlier.shape = NA) +
-  scale_fill_manual(values = c(region_cols)) +
-  GBM_theme() +
-  theme(legend.position = "none") + 
-  ylab("Factor Activation") +
-  ggtitle(factor) + 
-  geom_signif_lmm(
-    data_df = curr_df,
-    response = "Activation",
-    condition = "Region",
-    latent_vars = c("Patient"),
-    comparisons = list(c("PT", "TE"), c("TE", "TC"), c("PT", "TC")),
-    step_increase = c(0, 0.1, 0.1)
-  )
-}
-plots <- wrap_plots(plots, ncol = 5, nrow = 1, guides = "collect")
-ggsave(plots, filename = "Factors_boxplot.pdf", path = plot_dir, width = 12, height = 5)
+# top 100 markers
+
+markers <- sapply(colnames(consensus_mps), function(factor) {
+  print(factor)
+  curr_mp <- consensus_mps %>% 
+    select(factor) %>% 
+    arrange(-!!sym(factor))
+  return (rownames(curr_mp)[1:100])
+})
+
+write.csv(markers, file.path(plot_dir, "consensus_mps_markers.csv"))
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S3c                                  #
+#                                    Fig S3b                                   #
 # ---------------------------------------------------------------------------- #
 markers <- as.vector(as.data.frame(markers))
 
-factors <- read.csv("/consensus_mps.csv") # load conensus factors 
-
-ora_dir <- file.path(plot_dir, "/ora/")
+ora_dir <- file.path(plot_dir, "ora")
 if(!dir.exists(ora_dir)) dir.create(ora_dir, recursive = TRUE)
 
 msigdb_cat_list <- list(c("H"),
@@ -145,11 +173,13 @@ msigdb_cat_list <- list(c("H"),
                         c("C5", "GO:CC"),
                         c("C5", "GO:MF"))
 
-msigdb_data <- fread("msigdb.csv") # path to msigdb gene sets
+msigdb_data <- fread(args$msigdb)
 
-universe_genes <- rownames(factors)
+universe_genes <- colnames(multiome_factors)
 
 for(curr_factor in names(markers)){
+
+  log_info(paste0("ORA for ", curr_factor))
   
   all_sig_results <- c()
   for(j in seq(1, length(msigdb_cat_list))){
@@ -164,7 +194,7 @@ for(curr_factor in names(markers)){
     curr_msigdbr_list <- split(x = curr_gene_sets$gene_symbol, f = curr_gene_sets$gs_name)
     
     curr_ora_results <- fora(curr_msigdbr_list, markers[[curr_factor]], universe_genes)
-    sig_ora_results <- curr_ora_results[padj < 0.1]
+    sig_ora_results <- curr_ora_results[padj < 0.5]
     
     if(nrow(sig_ora_results) > 10){
       setorder(sig_ora_results, padj)
@@ -175,95 +205,204 @@ for(curr_factor in names(markers)){
     all_sig_results <- rbindlist(list(all_sig_results, sig_ora_results))
   }
   
-    all_sig_results <- all_sig_results %>% arrange(padj)
+  if(nrow(all_sig_results) == 0){
+    sig_result_plots <- NULL
+  }else {
+    if(length(unique(all_sig_results$msigdb_cat)) == 1){
+      sig_result_plots <- ggplot(all_sig_results, aes(y = reorder(pathway, -padj), x = -log10(padj), color = -log10(padj))) + 
+        geom_point(aes(size = size)) + 
+        scale_color_gradient(low = "orange", high = "red") +
+        labs(title = "Pathway Enrichment", y = "Pathway") +
+        theme_classic()
+
+      ggsave(filename = paste0(curr_factor, ".pdf"), plot =  sig_result_plots, path = ora_dir, width = 8, height = 15)
+    }else {
+      plots <- list()
+      for (cat in unique(all_sig_results$msigdb_cat)) {
+
+        df <- all_sig_results %>% 
+          filter(msigdb_cat == cat)
+
+        plots[[cat]] <- ggplot(df, aes(y = reorder(pathway, -padj), x = -log10(padj), color = -log10(padj))) +
+          geom_point(aes(size = size)) +
+          scale_color_gradient(low = "orange", high = "red") +
+          labs(title = "Pathway Enrichment", y = "Pathway") +
+          ggtitle(cat) +
+          theme_classic()
+
+      }
+      plots <- wrap_plots(plots, ncol = 3, nrow = 3)
+      ggsave(plots, filename = paste0("fora_indiv_", curr_factor, ".pdf"), path = ora_dir, height = 15, width = 25)
+
+      all_sig_results <- all_sig_results %>% arrange(padj)
+    }
+
     fwrite(all_sig_results, file = paste0(ora_dir, "/", curr_factor, ".csv"))
+  }
 }
 
 ora_res <- list.files("/ora", full.names = TRUE)
-ora_res <- ora_res[grepl(".csv", ora_res)]
+
+ora_res <- ora_res[grepl("^Factor.*\\.csv$", basename(ora_res))]
 
 plots <- list()
 for (path in ora_res) {
   res <- read.csv(path)
-  res <- res[1:5,]
-
-  res$pct_overlap <- res$overlap / res$size
+  res$pct_overlap <- (res$overlap / res$size) * 100
 
   factor <- gsub(".csv", "", basename(path))
   title <- case_when(
-    factor == "Factor5" ~ "Factor 5 - Hypoxia", # ordering is modified to align with factor-factor similarity heatmap.
-    factor == "Factor4" ~ "Factor 4 - Neuronal",
-    factor == "Factor3" ~ "Factor 3 - Injury",
-    factor == "Factor2" ~ "Factor 2 - Cilia",
-    factor == "Factor1" ~ "Factor 1 - Cell Cycle",
+    factor == "Factor5" ~ "Factor 5 (Hypoxia)",  
+    factor == "Factor4" ~ "Factor 4 (Neural Crest)",
+    factor == "Factor3" ~ "Factor 3 (Neuronal)",
+    factor == "Factor2" ~ "Factor 2 (Cilia)",
+    factor == "Factor1" ~ "Factor 1 (Cell Cycle)",
   )
 
   if (factor == "Factor5") {
     res$pathway <- case_when(
-      res$pathway == "MENSE_HYPOXIA_UP" ~ "Mense et al. \n Hypoxia",
-      res$pathway == "HALLMARK_MTORC1_SIGNALING" ~ "Hallmark \n MTORC1 Signaling",
       res$pathway == "HALLMARK_HYPOXIA" ~ "Hallmark \n Hypoxia",
-      res$pathway == "ELVIDGE_HYPOXIA_BY_DMOG_UP" ~ "Elvidge et al. \n Hypoxia by DMOG",
-      res$pathway == "ELVIDGE_HIF1A_AND_HIF2A_TARGETS_DN" ~ "Elvidge et al. \n HIF1A and HIF2A Targets",
+      res$pathway == "MENSE_HYPOXIA_UP" ~ "Mense et al. \n Hypoxia Up",
+      res$pathway == "ELVIDGE_HYPOXIA_UP" ~ "Elvidge et al. \n Hypoxia Up",
+      res$pathway == "HALLMARK_MTORC1_SIGNALING" ~ "Hallmark \n MTORC1 Signaling"
     )
+    res <- res[res$pathway %in% c("Hallmark \n Hypoxia",
+      "Mense et al. \n Hypoxia Up",
+      "Elvidge et al. \n Hypoxia Up",
+      "Hallmark \n MTORC1 Signaling"),]
   } else if (factor == "Factor4") {
     res$pathway <- case_when(
-      res$pathway == "GOCC_SYNAPTIC_MEMBRANE" ~ "GO:CC \n Synaptic Membrane",
-      res$pathway == "GOCC_POSTSYNAPTIC_MEMBRANE" ~ "GO:CC \n Postsynaptic Membrane",
-      res$pathway == "BENPORATH_ES_WITH_H3K27ME3" ~ "Benporath et al. \n ES with H3K27Me3",
-      res$pathway == "GOCC_INTRINSIC_COMPONENT_OF_POSTSYNAPTIC_MEMBRANE" ~ "GO:CC \n Component of Postsynaptic Membrane",
-      res$pathway == "GOCC_CATION_CHANNEL_COMPLEX" ~ "GO:CC \n Cation Channel Complex",
+      res$pathway == "LEE_NEURAL_CREST_STEM_CELL_UP" ~ "Lee et al. \n Neural Crest Stem Cell Up",
+      res$pathway == "VERHAAK_GLIOBLASTOMA_CLASSICAL" ~ "Verhaak et al. \n Glioblastoma Classical"
     )
+    res <- res[res$pathway %in% c("Lee et al. \n Neural Crest Stem Cell Up",
+      "Verhaak et al. \n Glioblastoma Classical"),]
   } else if (factor == "Factor3") {
     res$pathway <- case_when(
-      res$pathway == "HALLMARK_TNFA_SIGNALING_VIA_NFKB" ~ "Hallmark \n TNFa signaling via NFkB",
-      res$pathway == "BROCKE_APOPTOSIS_REVERSED_BY_IL6" ~ "Brocke et al. \n Apoptosis reversed by IL6",
-      res$pathway == "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" ~ "Hallmark \n EMT",
-      res$pathway == "GOCC_ACTOMYOSIN" ~ "GO:CC \n Actomyosin",
-      res$pathway == "MCDOWELL_ACUTE_LUNG_INJURY_UP" ~ "McDowell et al. \n Acute Lung Injury",
+      res$pathway == "GOCC_SYNAPSE" ~ "GO:CC \n Synapse",
+      res$pathway == "GOCC_GLUTAMATERGIC_SYNAPSE" ~ "GO:CC \n Glutamatergic Synapse",
+      res$pathway == "GOCC_SYNAPTIC_MEMBRANE" ~ "GO:CC \n Synaptic Membrane",
+      res$pathway == "GOBP_SYNAPSE_ORGANIZATION" ~ "GO:BP \n Synapse Organization"
     )
+    res <- res[res$pathway %in% c("GO:CC \n Synapse",
+      "GO:CC \n Glutamatergic Synapse",
+      "GO:CC \n Synaptic Membrane",
+      "GO:BP \n Synapse Organization"),]
   } else if (factor == "Factor2") {
     res$pathway <- case_when(
-      res$pathway == "GOBP_CILIUM_MOVEMENT" ~ "GO:BP \n Cilium Movement",
-      res$pathway == "GOCC_CILIUM" ~ "GO:CC \n Cilium",
-      res$pathway == "GOCC_9PLUS2_MOTILE_CILIUM" ~ "GO:CC \n 9+2 Motile Cilium",
-      res$pathway == "GOCC_MOTILE_CILIUM" ~ "GO:CC \n Motile Cilium",
-      res$pathway == "GOBP_MICROTUBULE_BASED_MOVEMENT" ~ "GO:BP \n Microtubule-based Movement",
+      res$pathway == "LIM_MAMMARY_LUMINAL_MATURE_DN" ~ "Lim et al. \n Mammary Luminal Mature Down",
+      res$pathway == "GOBP_MICROTUBULE_BASED_MOVEMENT" ~ "GO:BP \n Microtubule Based Movement",
+      res$pathway == "GOBP_CILIUM_ORGANIZATION" ~ "GO:BP \n Cilium Organization",
+      res$pathway == "GOBP_CILIUM_MOVEMENT" ~ "GO:BP \n Cilium Movement"
     )
+    res <- res[res$pathway %in% c("Lim et al. \n Mammary Luminal Mature Down",
+      "GO:BP \n Microtubule Based Movement",
+      "GO:BP \n Cilium Organization",
+      "GO:BP \n Cilium Movement"),]
   } else {
     res$pathway <- case_when(
       res$pathway == "FISCHER_DREAM_TARGETS" ~ "Fischer et al. \n Dream targets",
       res$pathway == "MARSON_BOUND_BY_E2F4_UNSTIMULATED" ~ "Marson et al. \n Bound by E2F4 Unstimulated",
-      res$pathway == "GOBERT_OLIGODENDROCYTE_DIFFERENTIATION_UP" ~ "Gobert et al. \n Oligodendrocyte Differentiation Up",
-      res$pathway == "FLORIO_NEOCORTEX_BASAL_RADIAL_GLIA_DN" ~ "Elvidge et al. \n Neocortex Apical Basal Radial Glia",
-      res$pathway == "FISCHER_G2_M_CELL_CYCLE" ~ "Fischer et al. \n G2M Cell Cycle",
+      res$pathway == "GOBP_CELL_CYCLE" ~ "GO:BP \n Cell Cycle",
+      res$pathway == "HALLMARK_G2M_CHECKPOINT" ~ "Hallmark \n G2M Checkpoint",
     )
+    res <- res[res$pathway %in% c("Fischer et al. \n Dream targets",
+      "Marson et al. \n Bound by E2F4 Unstimulated",
+      "GO:BP \n Cell Cycle",
+      "Hallmark \n G2M Checkpoint"),]
   }
   p <- ggplot(res, aes(x = -log10(padj), y = reorder(pathway, -log10(padj)))) +
-    geom_segment(aes(xend = 0, yend = pathway), color = "royalblue") +
-    geom_point(aes(size = pct_overlap), color = "royalblue") +
-    scale_size_continuous(range = c(4, 10)) +
+    geom_bar(stat = "identity", color = "grey") +
     GBM_theme() +
     labs(title = title,
         x = "-log10(FDR)",
-        y = "",
-        size = "Gene set overlap") +
-    theme(legend.position = "left",
-          legend.direction = "vertical")
-  p <- grid.arrange(p, widths = unit(9, "in"))
+        y = "") 
 
   plots[[factor]] <- p
-
-  ggsave(plot = p, filename = paste0(factor, "_ora_plot.pdf"), path = ora_dir, width = 10, height = 5)
 }
 
-plots <- wrap_plots(plots, ncol = 3, nrow = 2, guides = "collect")
-ggsave(plot = plots, filename = "factors_ora.pdf", path = plot_dir, width = 28, height = 10)
+plots <- wrap_plots(plots, ncol = 1, nrow = 5, guides = "collect")
+ggsave(plot = plots, filename = "factors_ora.pdf", path = plot_dir, width = 10, height = 20)
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S4d                                  #
+#                                  Figure S3c                                  #
 # ---------------------------------------------------------------------------- #
+usage <- read.csv("usage_mtx.csv", row.names = 1)
 
+rna_multiome <- read.table("malignant_RNA_data_multiome.tsv", 
+                    sep = "\t", header = TRUE, row.names = 1)
+
+rna_parse <- read.table("malignant_RNA_data_parse.tsv", 
+                    sep = "\t", header = TRUE, row.names = 1)
+
+rna <- rbind(rna_multiome, rna_parse)
+
+colnames(usage) <- paste0("Factor", seq(length(colnames(usage)), 1)) # Ordering is reversed to match order in which factors appear in factor-factor heatmap
+rownames(usage) <- rownames(rna)
+
+so[["nmf"]] <- CreateAssayObject(t(usage))
+so <- AddMetaData(so, metadata = as.data.frame(usage))
+
+neftel_markers <- read.csv("Neftel_gene_list.csv")
+
+gene_list <- list()
+for(i in 1:nrow(neftel_markers)) {
+  gene_list[[toString(neftel_markers[i,"Cell"])]] <- append(gene_list[[toString(neftel_markers[i,"Cell"])]],toString(neftel_markers[i, "Gene"]))
+}
+
+cell_type <- c()
+for(i in 1:length(gene_list)){
+  cell_type <- c(cell_type, paste0("Neftel_", names(gene_list)[i]))
+}
+names(gene_list) <- cell_type
+
+so <- AddModuleScore(so, features = gene_list, name = "Neftel")
+
+metadata <- so[[]]
+metadata$Region <- factor(metadata$Region, levels = c("PT", "TE", "TC"))
+
+df <- metadata
+df$Region <- factor(df$Region, levels = c("PT", "TE", "TC"))
+df <- df %>% 
+  select(c("Region", "Patient", paste0("Factor", seq(1, length(colnames(usage)))))) %>% 
+  pivot_longer(-c("Region", "Patient"), names_to = "Factor", values_to = "Activation")
+
+plots <- list()
+for (factor in unique(df$Factor)) {
+  curr_df <- df %>% filter(Factor == factor)
+  plots[[factor]] <- ggplot(curr_df, aes(x = Region, y = Activation, fill = Region)) +
+  geom_boxplot(alpha = 0.9, outlier.shape = NA) +
+  scale_fill_manual(values = c(region_cols)) +
+  GBM_theme() +
+  theme(legend.position = "none") + 
+  ylab("Factor Activation") +
+  ggtitle(factor) +
+  geom_signif_lmm(
+    data_df = curr_df,
+    response = "Activation",
+    condition = "Region",
+    latent_vars = c("Patient"),
+    comparisons = list(c("PT", "TE"), c("TE", "TC"), c("PT", "TC")),
+    step_increase = c(0, 0.1, 0.1)
+  )
+}
+plots <- wrap_plots(plots, ncol = 5, nrow = 1, guides = "collect")
+ggsave(plots, filename = "Factors_boxplot_lmm.pdf", path = plot_dir, width = 12, height = 5)
+
+df <- metadata %>% 
+    mutate(proliferating = ifelse(Factor1 > 0, "Cycling", "NonCycling")) %>% 
+    group_by_at(c("Region", "proliferating")) %>% 
+    summarise(num_cycling = n())
+df$Region <- factor(df$Region, levels = c("PT", "TE", "TC"))
+p <- ggplot(df, aes(x = Region, y = num_cycling, fill = proliferating)) +
+    geom_bar(position = "fill", stat = "identity") + 
+    theme_classic() +
+    scale_fill_manual(values = c("#6E7E85", "#1C0F13"))
+ggsave(filename = "factor1_cycling_cells.pdf", path = plot_dir)
+
+# ---------------------------------------------------------------------------- #
+#                                 Figure S3d-e                                 #
+# ---------------------------------------------------------------------------- #
 colnames(metadata) <- gsub("Neftel1", "MES2", colnames(metadata))
 colnames(metadata) <- gsub("Neftel2", "MES1", colnames(metadata))
 colnames(metadata) <- gsub("Neftel3", "AC", colnames(metadata))
@@ -285,25 +424,116 @@ dfs <- lapply(unique(metadata$Patient), function(patient) {
   curr_df$Factor3 <- scale(curr_df$Factor3)
   curr_df$Factor4 <- scale(curr_df$Factor4)
   curr_df$Factor5 <- scale(curr_df$Factor5)
-
   return(curr_df)
 })
+
 plot_df <- rbindlist(dfs)
+corr_df <- list()
+states <- c("MES2", "MES1", "AC", "OPC", "NPC1", "NPC2")
 
-for (state in c("MES2", "MES1", "AC", "OPC", "NPC1", "NPC2")) {
+for (factor in paste0("Factor", seq(1, length(colnames(usage))))) {
+  cors <- c()
 
-  cor_test <- cor.test(plot_df[[state]], plot_df[["Factor4"]], method = "pearson")
-  print(paste0(state, " corr:", cor_test$estimate, ", pval:", cor_test$p.value))
+  for (state in states) {
 
-  p <- ggplot(plot_df, aes(x = Factor4, y = get(state))) +
-    geom_point(aes(colour = Region), size = 3, alpha = 0.2, stroke = NA) +
-    stat_density_2d(aes(fill = Region, alpha = ..level..), geom = "polygon", contour_var = "ndensity", bins = 5) +
-    scale_alpha_continuous(range = c(0.1, 0.5)) +
-    scale_fill_manual(values = c(region_cols)) +
-    scale_colour_manual(values = c(region_cols)) +
-    ylab(paste0("Scaled ", state, " score")) +
-    xlab("Scaled Factor 4 (Neuronal) activation") +
-    GBM_theme()
+    cor_test <- cor.test(plot_df[[state]], plot_df[[factor]], method = "pearson")
+    print(paste0(state, " corr:", cor_test$estimate, ", pval:", cor_test$p.value))
+    cors <- c(cors, cor_test$estimate)
 
-  ggsave(filename = paste0(state, "_score_vs_Factor4_scaled.pdf"), path = plot_dir)
+    p <- ggplot(plot_df, aes(x = get(factor), y = get(state))) +
+      stat_density_2d(aes(fill = Region, alpha = ..level..), geom = "polygon", contour_var = "ndensity", bins = 5) +
+      annotate("text", label = paste0(state, " corr:", round(cor_test$estimate, 2), ", pval:", format(cor_test$p.value, scientific = TRUE, digits = 3)), x = 0, y = 3) +
+      scale_alpha_continuous(range = c(0.1, 0.5)) +
+      scale_fill_manual(values = c(region_cols)) +
+      scale_colour_manual(values = c(region_cols)) +
+      ylab(paste0("Scaled ", state, " score")) +
+      xlab(paste0("Scaled ", factor, " activation")) +
+      GBM_theme()
+
+    ggsave(filename = paste0(state, "_score_vs_", factor, "_scaled.pdf"), path = plot_dir)
+  }
+
+  names(cors) <- states
+  corr_df[[factor]] <- cors
 }
+
+corr_df <- as.data.frame(corr_df)
+
+pdf(file = paste0(plot_dir, "/factor_state_correlation.pdf"), width = 12, height = 10)
+pushViewport(viewport(gp = gpar(fontfamily = "Helvetica")))
+heatmap <- Heatmap(as.matrix(corr_df), 
+        name = "Factor-State correlation", 
+        height = nrow(corr_df)*unit(2, "cm"),
+        width = ncol(corr_df)*unit(5, "cm"),
+        col = colorRamp2(c(-1, -0.5, 0, 0.5, 1), rev(brewer.pal(5, "RdBu"))),
+        cluster_rows = FALSE,
+        cluster_columns = FALSE, 
+        show_heatmap_legend = TRUE,
+        show_row_names = TRUE, 
+        show_column_names = TRUE
+        )
+draw(heatmap, newpage = FALSE)
+popViewport()
+dev.off()
+
+# ---------------------------------------------------------------------------- #
+#                                 Figure S3f-j                                 #
+# ---------------------------------------------------------------------------- #
+
+df <- metadata
+df$Region <- factor(df$Region, levels = c("PT", "TE", "TC"))
+df <- df %>% 
+    filter(CellClass_L3 %in% c("Malignant_OPC", "Malignant_NPC1")) %>% 
+    select(c("Region", "Patient", paste0("Factor", seq(1, length(colnames(usage)))))) %>% 
+    pivot_longer(-c("Region", "Patient"), values_to = "Activation", names_to = "Factor")
+
+df$Factor <- case_when(
+  df$Factor == "Factor5" ~ "Factor 5 (Hypoxia)",  
+  df$Factor == "Factor4" ~ "Factor 4 (Neural Crest)",
+  df$Factor == "Factor3" ~ "Factor 3 (Neuronal)",
+  df$Factor == "Factor2" ~ "Factor 2 (Cilia)",
+  df$Factor == "Factor1" ~ "Factor 1 (Cell Cycle)",
+)
+
+for (factor in unique(df$Factor)) {
+
+    curr_factor <- df %>% 
+        filter(Factor == factor)
+    
+    p <- ggplot(curr_factor, aes(x = Region, y = Activation)) +
+        geom_boxplot(aes(fill = Region), alpha = 0.9, outlier.shape = NA) +
+        scale_fill_manual(values = region_cols) +
+        GBM_theme() +
+        ylab("Factor activation") +
+        ggtitle(paste0("Activation of ", factor, " in OPC/NPC1-like cells")) 
+
+      p <- p +
+        geom_signif_lmm(
+            data_df = curr_factor,
+            response = "Activation",
+            condition = "Region",
+            latent_vars = c("Patient"),
+            comparisons = list(c("PT", "TE"), c("TE", "TC"), c("PT", "TC")),
+            step_increase = c(0, 0.1, 0.1)
+        )
+    ggsave(filename = paste0("OPC_NPC1_", factor, ".pdf"), path = plot_dir, height = 8, width = 8)
+}
+
+
+df <- metadata %>% 
+    mutate(proliferating = ifelse(Factor1 > 0, "Cycling", "NonCycling")) %>% 
+    mutate(Region = ifelse(Region == "PT", "PT", "Tumor")) %>% 
+    filter(CellClass_L3 %in% c("Malignant_OPC", "Malignant_NPC1")) %>% 
+    group_by_at(c("Region", "proliferating", "Patient")) %>% 
+    summarise(num_cycling = n()) %>% 
+    group_by_at(c("Region", "Patient")) %>% 
+    mutate(total = sum(num_cycling), percent = (num_cycling / total) * 100) %>% 
+    filter(proliferating == "Cycling")
+df$Region <- factor(df$Region, levels = c("PT", "Tumor"))
+p <- ggplot(df, aes(x = Region, y = percent)) +
+    geom_boxplot(aes(fill = Region)) +
+    geom_point(size = 2) +
+    theme_classic() +
+    scale_fill_manual(values = c(region_cols[1], "#7F7F7F")) +
+    stat_compare_means(comparisons = list(c("PT", "Tumor")))
+ggsave(filename = "OPC_NPC1_ONLY_factor1_cycling_cells.pdf", path = plot_dir, height = 7, width = 5)

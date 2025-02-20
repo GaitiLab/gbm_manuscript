@@ -24,11 +24,11 @@ if(!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
 # GSEA
  
-curr_gene_list <- read.csv("de_results.csv") # import de results from fig 1i
+curr_gene_list <- read.csv("de_results.csv") 
 
 rownames(curr_gene_list) <- curr_gene_list$gene
 
-gene_set <- gmtPathways("/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/c5.go.v2023.2.Hs.symbols.gmt")
+gene_set <- gmtPathways("c5.go.v2023.2.Hs.symbols.gmt")
 
 ranked_genes_response <- curr_gene_list %>%
     mutate(rank = log2FoldChange) %>%
