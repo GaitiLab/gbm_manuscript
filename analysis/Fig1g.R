@@ -1,4 +1,4 @@
-#! usr/bin/env Rscript
+# Code to reproduce Figure 1g
 
 # GSEA for DEGs
 

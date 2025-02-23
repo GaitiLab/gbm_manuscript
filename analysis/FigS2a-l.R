@@ -1,4 +1,4 @@
-# Code to reproduce Figure S2
+# Code to reproduce Figure S2a-l
 
 if(!("pacman" %in% rownames(installed.packages()))){
   install.packages("pacman")

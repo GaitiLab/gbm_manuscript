@@ -1,4 +1,4 @@
-#! usr/bin/env Rscript
+# Code to reproduce Figures S8a-d
 
 if(!("pacman" %in% rownames(installed.packages()))){
   install.packages("pacman")

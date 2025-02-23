@@ -1,4 +1,4 @@
-# Code to reproduce Fig 1i
+# Code to reproduce Fig 1f
 
 if (!("pacman" %in% rownames(installed.packages()))) {
   install.packages("pacman")
