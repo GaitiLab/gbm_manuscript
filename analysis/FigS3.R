@@ -27,6 +27,46 @@ if(!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 plot_dir <- paste0(output_dir, "/path_to_output_directory")
 if(!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
 
+# export data for cNMF
+
+so <- readRDS("path_to_seurat_object")
+so <- subset(so, subset = is_malignant_confident == TRUE)
+
+split_list <- SplitObject(so, split.by = "Patient")
+var_features <- c()
+for (x in split_list) {
+  DefaultAssay(x) <- "RNA"
+  features <- FindVariableFeatures(x, verbose = FALSE, nfeatures = 2000)
+  features <- features@assays$RNA@var.features
+  var_features <- c(var_features, features)
+}
+var_features <- data.frame(features = var_features) %>% 
+  group_by(features) %>% 
+  summarise(count = n()) %>% 
+  arrange(-count)
+protein_coding_genes <- read.csv("ensembl_protein_coding_genes.csv")
+var_features <- var_features[var_features$features %in% protein_coding_genes$hgnc_symbol,]
+
+var_features <- var_features$features[1:2000]
+
+parse <- subset(so, subset = Platform == "ParseBio")
+rna_parse_counts <- parse@assays$RNA@counts[var_features,]
+rna_parse_counts <- as.data.table(t(as.matrix(rna_parse_counts)), keep.rownames = "ID")
+fwrite(rna_parse_counts, file.path(output_dir, "malignant_RNA_counts_parse.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+
+rna_parse_data <- parse@assays$RNA@data[var_features,]
+rna_parse_data <- as.data.table(t(as.matrix(rna_parse_data)), keep.rownames = "ID")
+fwrite(rna_parse_data, file.path(output_dir, "malignant_RNA_data_parse.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+
+multiome <- subset(so, subset = Platform == "Multiome")
+rna_multiome_counts <- multiome@assays$RNA@counts[var_features,]
+rna_multiome_counts <- as.data.table(t(as.matrix(rna_multiome_counts)), keep.rownames = "ID")
+fwrite(rna_multiome_counts, file.path(output_dir, "malignant_RNA_counts_multiome.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+
+rna_multiome_data <- multiome@assays$RNA@data[var_features,]
+rna_multiome_data <- as.data.table(t(as.matrix(rna_multiome_data)), keep.rownames = "ID")
+fwrite(rna_multiome_data, file.path(output_dir, "malignant_RNA_data_multiome.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+
 # ---------------------------------------------------------------------------- #
 #                                    Fig S3a                                   #
 # ---------------------------------------------------------------------------- #
@@ -173,7 +213,7 @@ msigdb_cat_list <- list(c("H"),
                         c("C5", "GO:CC"),
                         c("C5", "GO:MF"))
 
-msigdb_data <- fread(args$msigdb)
+msigdb_data <- fread(msigdb)
 
 universe_genes <- colnames(multiome_factors)
 
@@ -329,13 +369,7 @@ ggsave(plot = plots, filename = "factors_ora.pdf", path = plot_dir, width = 10, 
 # ---------------------------------------------------------------------------- #
 usage <- read.csv("usage_mtx.csv", row.names = 1)
 
-rna_multiome <- read.table("malignant_RNA_data_multiome.tsv", 
-                    sep = "\t", header = TRUE, row.names = 1)
-
-rna_parse <- read.table("malignant_RNA_data_parse.tsv", 
-                    sep = "\t", header = TRUE, row.names = 1)
-
-rna <- rbind(rna_multiome, rna_parse)
+rna <- rbind(rna_multiome_data, rna_parse_data)
 
 colnames(usage) <- paste0("Factor", seq(length(colnames(usage)), 1)) # Ordering is reversed to match order in which factors appear in factor-factor heatmap
 rownames(usage) <- rownames(rna)
