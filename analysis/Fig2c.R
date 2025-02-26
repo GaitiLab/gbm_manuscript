@@ -30,7 +30,6 @@ params <- list(
     path_to_de_genes_table = "misc/SuppTables/Table S3.xlsx",
     path_to_greenwald_data_dir = "data/Greenwald2023",
     path_to_greenwald_metadata = "misc/Greenwald2023_metadata.csv",
-    # TODO @Bensonwu02 Missing file
     path_to_genelists = "misc/SuppTables/Table S2.xlsx"
 )
 
