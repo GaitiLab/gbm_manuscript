@@ -1,33 +1,56 @@
-# Code to reproduce Figure 2b
+# ---- Code to reproduce Figure 1f ---- #
 
-library(dplyr)
-library(ggplot2)
-library(ggrepel)
+# Unload all previously loaded packages + remove previous environment
+rm(list = ls(all = TRUE))
+pacman::p_unload()
 
-output_dir <- ""
+# Set working directory
+GaitiLabUtils::set_wd()
 
-# Creating directories needed for outputs 
-if(!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+pacman::p_load(dplyr, ggplot2, ggrepel)
 
-plot_dir <- paste0(output_dir, "/path_to_output_directory")
-if(!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
+# Required input:
+params <- list(
+    plot_dir = "output/submission/figures",
+    interactions_path = "misc/SuppTables/Table S4.xlsx"
+)
 
-interactions <- read.csv("interactions_summary.csv")
-interactions <- interactions %>%  
-  filter(Region == "PT") %>% 
-  filter(source_target == "Glutamatergic__Invasive-high OPC/NPC1" | source_target == "Invasive-high OPC/NPC1__Glutamatergic") 
+# Creating directories needed for outputs
+GaitiLabUtils::create_dir(params$plot_dir)
 
-interactions <- interactions %>% 
-  filter(Interaction_type != "NA") %>% 
-  group_by(Interaction_type) %>% 
-  summarise(n = n())
+# ---- Load data & data wrangling ---- #
+
+interactions <- readxl::read_excel(
+    params$interactions_path,
+    sheet = "Glutamatergic and Invasive-high",
+    skip = 1
+)
+
+interactions <- interactions %>%
+    filter(Interaction_type != "NA") %>%
+    group_by(Interaction_type) %>%
+    summarise(n = n())
 
 interactions$rank <- rank(-interactions$n, ties.method = "first")
 interactions <- interactions %>% arrange(rank)
-interactions$pathway_label <- ifelse(interactions$rank <= 4, interactions$Interaction_type, NA)
+interactions$pathway_label <- ifelse(
+    interactions$rank <= 4,
+    interactions$Interaction_type,
+    NA
+)
 
-ggplot(interactions, aes(x=rank, y=n)) +
-  geom_point(color = "black", stroke = 1, shape = 21, size = 5) +
-  geom_text_repel(aes(label = pathway_label), nudge_x = 5, nudge_y = 2, na.rm = TRUE) +
-  theme_classic()
-ggsave("cci_pathway_rank_new.pdf", path = plot_dir)
+# ---- Create figure ---- #
+ggplot(interactions, aes(x = rank, y = n)) +
+    geom_point(color = "black", stroke = 1, shape = 21, size = 2) +
+    geom_text_repel(
+        aes(label = pathway_label),
+        nudge_x = 5,
+        nudge_y = 2,
+        na.rm = TRUE
+    ) +
+    GBMutils::GBM_theme() +
+    labs(
+        y = "Number of Interactions Identified Between\n\nGlutamatergic Neuron - Invasive-high OPC/NPC1-like",
+        x = "Rank"
+    )
+ggsave("Fig2b.pdf", path = params$plot_dir)
