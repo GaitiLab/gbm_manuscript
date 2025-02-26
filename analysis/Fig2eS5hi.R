@@ -182,6 +182,7 @@ pseudobulk_scores_df_long <- do.call(
 ) %>%
     rename(signature = variable)
 
+# Saving in case of reuse
 saveRDS(
     pseudobulk_scores_df_long,
     file = file.path(
@@ -191,7 +192,6 @@ saveRDS(
 )
 
 # ---- Data wrangling ---- #
-
 # Split into observed and shuffled
 pseudobulk_scores_observed_df_long <- pseudobulk_scores_df_long %>%
     filter(ix == "cat_dist") %>%
@@ -291,7 +291,7 @@ p_bar <- ggplot(
         subtitle = glue(
             "k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"
         ),
-        y = glue("Z-score"),
+        y = "Deviation of signature score from the mean of 10,000 interactions (Z-score)",
         x = "Signature"
     ) +
     coord_flip()
@@ -303,6 +303,8 @@ ggsave(
         "Fig2e-malign_signature_vs_proximity_k{params$k_neighbors}_neurons_barplot_closest_to_neuron.pdf"
     ),
     height = 4,
+    width = 10,
+
     path = params$plot_dir
 )
 
@@ -378,8 +380,231 @@ log_info("Save figure as PDF...")
 ggsave(
     p_histo,
     filename = glue(
-        "Fig2e.pdf"
+        "Fig2e_histo.pdf"
     ),
     height = 4,
+    path = params$plot_dir
+)
+
+# ---- Create Figure S5h ---- #
+
+# Split into shuffled and observed
+stat_shuffled_df_subset_long <- stat_df_wide %>%
+    select(cat_dist_simplified, signature, starts_with("cat_dist_sid")) %>%
+    reshape2::melt(variable.name = "iteration_id", value.name = "score") %>%
+    filter(
+        signature %in% c("Differentiated-like", "Progenitor-like"),
+        cat_dist_simplified == "Nearest 10% malignant cells to neurons"
+    ) %>%
+    mutate(
+        signature = factor(
+            as.character(signature),
+            levels = c("Differentiated-like", "Progenitor-like")
+        )
+    )
+
+stat_obs_df_subset_wide <- stat_df_wide %>%
+    select(
+        cat_dist_simplified,
+        signature,
+        AddModuleScore_obs,
+        perm_mean,
+        z_score,
+        p_value
+    ) %>%
+    distinct() %>%
+    filter(
+        signature %in% c("Differentiated-like", "Progenitor-like"),
+        cat_dist_simplified == "Nearest 10% malignant cells to neurons"
+    )
+
+
+p_histo <- ggplot(
+    data = stat_shuffled_df_subset_long,
+    aes(x = score)
+) +
+    geom_histogram(binwidth = 1e-3, show.legend = FALSE, fill = "grey") +
+    ggh4x::facet_grid2(
+        signature ~ .,
+        scales = "free_x",
+        axes = "all",
+        independent = "x"
+    ) +
+    geom_vline(
+        data = stat_obs_df_subset_wide,
+        aes(xintercept = AddModuleScore_obs),
+        color = "blue"
+    ) +
+    geom_vline(
+        data = stat_obs_df_subset_wide,
+        aes(xintercept = perm_mean),
+        color = "red",
+        linetype = "dashed"
+    ) +
+    geom_text(
+        data = stat_obs_df_subset_wide,
+        aes(
+            x = (AddModuleScore_obs - AddModuleScore_obs * 0.01),
+            label = glue(
+                "Observed Module score={round(AddModuleScore_obs, 5)}"
+            ),
+            y = 300
+        ),
+        colour = "blue",
+        angle = 90,
+        size = 1.5
+    ) +
+    scale_x_continuous(breaks = scales::pretty_breaks()) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    GBMutils::GBM_theme() +
+    labs(
+        x = "Module Score",
+        y = "No. of iterations",
+        subtitle = glue(
+            "k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"
+        ),
+        title = "Nearest 10% malignant cells to neurons"
+    ) +
+    theme(
+        aspect.ratio = 0.5,
+        strip.text.x.top = element_text(size = rel(0.55)),
+        strip.text.y.right = element_text(size = rel(0.35))
+    )
+
+log_info("Save figure as PDF...")
+ggsave(
+    p_histo,
+    filename = glue(
+        "FigS5h_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_histo_DL_and_PL_closest.pdf"
+    ),
+    height = 8,
+    path = params$plot_dir
+)
+
+
+# ---- Create Figure S5i ---- #
+
+# Split into shuffled and observed
+stat_shuffled_df_subset_long <- stat_df_wide %>%
+    select(cat_dist_simplified, signature, starts_with("cat_dist_sid")) %>%
+    reshape2::melt(variable.name = "iteration_id", value.name = "score") %>%
+    filter(
+        cat_dist_simplified == "Furthest 10% malignant cells to neurons"
+    )
+
+stat_obs_df_subset_wide <- stat_df_wide %>%
+    select(
+        cat_dist_simplified,
+        signature,
+        AddModuleScore_obs,
+        perm_mean,
+        z_score,
+        p_value
+    ) %>%
+    distinct() %>%
+    filter(
+        cat_dist_simplified == "Furthest 10% malignant cells to neurons"
+    )
+
+
+p_histo <- ggplot(
+    data = stat_shuffled_df_subset_long,
+    aes(x = score)
+) +
+    geom_histogram(binwidth = 1e-3, show.legend = FALSE, fill = "grey") +
+    ggh4x::facet_grid2(
+        signature ~ .,
+        scales = "free_x",
+        axes = "all",
+        independent = "x"
+    ) +
+    geom_vline(
+        data = stat_obs_df_subset_wide,
+        aes(xintercept = AddModuleScore_obs),
+        color = "blue"
+    ) +
+    geom_vline(
+        data = stat_obs_df_subset_wide,
+        aes(xintercept = perm_mean),
+        color = "red",
+        linetype = "dashed"
+    ) +
+    geom_text(
+        data = stat_obs_df_subset_wide,
+        aes(
+            x = (AddModuleScore_obs - AddModuleScore_obs * 0.01),
+            label = glue(
+                "Observed Module score={round(AddModuleScore_obs, 5)}"
+            ),
+            y = 300
+        ),
+        colour = "blue",
+        angle = 90,
+        size = 1.5
+    ) +
+    scale_x_continuous(breaks = scales::pretty_breaks()) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    GBMutils::GBM_theme() +
+    labs(
+        x = "Module Score",
+        y = "No. of iterations",
+        subtitle = glue(
+            "k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"
+        ),
+        title = "Furthest 10% malignant cells to neurons"
+    ) +
+    theme(
+        aspect.ratio = 0.5,
+        strip.text.x.top = element_text(size = rel(0.55)),
+        strip.text.y.right = element_text(size = rel(0.35))
+    )
+
+log_info("Save figure as PDF...")
+ggsave(
+    p_histo,
+    filename = glue(
+        "FigS5i_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_histo_all_furthest.pdf"
+    ),
+    height = 8,
+    path = params$plot_dir
+)
+
+p_bar <- ggplot(
+    data = stat_df_wide %>%
+        filter(cat_dist_simplified == cat_dist_simplified_labels[["furthest"]]),
+    aes(
+        fill = signature,
+        x = signature,
+        y = z_score
+    )
+) +
+    geom_bar(
+        stat = "identity",
+        position = "dodge",
+        show.legend = FALSE,
+        fill = "grey",
+        color = "black"
+    ) +
+    scale_fill_manual(values = palette) +
+    scale_y_continuous(breaks = scales::pretty_breaks()) +
+    GBMutils::GBM_theme() +
+    labs(
+        title = cat_dist_simplified_labels[["furthest"]],
+        subtitle = glue(
+            "k={params$k_neighbors} with no. iterations={prettyNum(params$n_iter, big.mark =',')}"
+        ),
+        y = "Deviation of signature score from the mean of 10,000 interactions (Z-score)",
+        x = "Signature"
+    ) +
+    coord_flip()
+
+log_info("Save figure as PDF...")
+ggsave(
+    p_bar,
+    filename = glue(
+        "FigS5i_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_barplot_furthest_from_neuron.pdf"
+    ),
+    height = 4,
+    width = 10,
     path = params$plot_dir
 )

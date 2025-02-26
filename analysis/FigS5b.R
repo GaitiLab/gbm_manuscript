@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure 1a ---- #
+# ---- Code to reproduce Figure S5b ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -22,10 +22,10 @@ pacman::p_load(
 )
 
 params <- list(
-    output_dir = "output/cci_scRNAseq",
-    avg_expr = "output/cci_scRNAseq/processed/mean_exp_by_Sample__CCI_CellClass_L2_2_RNA_counts.rds",
-    meta = "preprocessing/scRNAseq/CCI_CellClass_L2_2/output/000_data/gbm_regional_study_top_up__metadata.rds",
-    interactions = "SuppTables/Table S4.xlsx",
+    plot_dir = "output/submission/figures",
+    # scRNAseq Seurat object
+    seurat_obj_path = "",
+    interactions_path = "misc/SuppTables/Table S4.xlsx",
     condition_varname = "Region",
     pval_type = "pval_adj",
     condition_oi = "PT",
@@ -33,10 +33,11 @@ params <- list(
     pair_x = "Glutamatergic__Progenitor_like",
     neuron_subtype = "Glutamatergic",
     alpha = 0.05,
-    ref_db = "misc/ref_db.rds"
+    # Ref db can be downloaded from https://github.com/GaitiLab/scrnaseq-cellcomm-pipeline/blob/main/assets/interactions_db/ref_db.rds
+    ref_db = "misc/internal/ref_db.rds"
 )
 
-GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
 
 label_color <- setNames(
     c(
@@ -47,6 +48,7 @@ label_color <- setNames(
 )
 
 # ---- Load data & data wrangling ---- #
+
 # Setup for visualization
 ref_db <- readRDS(params$ref_db)
 genes_in_db <- ref_db %>%
@@ -58,13 +60,32 @@ genes_in_db <- ref_db %>%
     unique()
 
 # Load metadata
-meta <- readRDS(params$meta) %>%
+seurat_obj <- readRDS(params$seurat_obj_path)
+
+meta <- seurat_obj@meta.data %>%
     dplyr::select(Sample, !!sym(params$condition_varname)) %>%
     distinct() %>%
     remove_rownames()
 
 # Format expression
-avg_exp <- readRDS(params$avg_expr)
+groupbyvar <- c("Sample", "CCI_CellClass_L2_2")
+
+# If Seurat v4
+# avg_expr <- AverageExpression(
+#     seurat_obj,
+#     assays = "RNA",
+#     group.by = groupbyvar,
+#     slot = "counts"
+# )[["RNA"]]
+
+# If Seurat v5
+avg_exp <- AverageExpression(
+    seurat_obj,
+    assays = "RNA",
+    layer = "counts",
+    group.by = groupbyvar
+)[["RNA"]]
+
 
 column_names <- colnames(avg_exp)
 
@@ -250,5 +271,5 @@ ggsave(
     filename = "FigS5b.pdf",
     width = 12,
     height = 12,
-    path = params$output_dir
+    path = params$plot_dir
 )
