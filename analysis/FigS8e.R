@@ -1,3 +1,17 @@
+# ---- Code to reproduce Figure S8e ---- #
+
+# Unload all previously loaded packages + remove previous environment
+rm(list = ls(all = TRUE))
+pacman::p_unload()
+
+# Set working directory
+GaitiLabUtils::set_wd()
+
+# ---- Setup script ---- #
+
+# Load libraries
+# TODO @Yiyan-YW add pacman::p_load() with needed packages
+
 params <- list(
     input = "/multiome_results/10_ArchR",
     archr_threads = 8,
@@ -11,8 +25,13 @@ params <- list(
     exclude_types = NULL,
     include_regions = NULL,
     topVarGenes = 10000,
-    folder_name = "CellClass_L5_2_archr_top10000"
+    folder_name = "CellClass_L5_2_archr_top10000",
+    output_dir = "output/submission",
+    plot_dir = "output/submission/figures",
 )
+
+GaitiLabUtils::create_dir(params$plot_dir)
+GaitiLabUtils::create_dir(params$output_dir)
 
 # Load the ArchR library
 addArchRThreads(threads = as.numeric(params$archr_threads))
@@ -28,31 +47,70 @@ confidence_column <- paste0("Seurat_", params$confidence_column)
 # Filter cells based on cell types, regions, and confidence
 if (!is.null(params$include_types)) {
     include_types <- str_split(params$include_types, ",")[[1]]
-    archr_proj <- archr_proj[which(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% include_types)]
+    archr_proj <- archr_proj[which(
+        getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in%
+            include_types
+    )]
 } else if (!is.null(params$exclude_types)) {
     exclude_types <- str_split(params$exclude_types, ",")[[1]]
-    archr_proj <- archr_proj[which(!(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% exclude_types))]
+    archr_proj <- archr_proj[which(
+        !(getCellColData(
+            archr_proj,
+            select = cell_type_column,
+            drop = TRUE
+        ) %in%
+            exclude_types)
+    )]
 }
 
-archr_proj <- archr_proj[which(getCellColData(archr_proj, select = confidence_column, drop = TRUE) == "TRUE")]
+archr_proj <- archr_proj[which(
+    getCellColData(archr_proj, select = confidence_column, drop = TRUE) ==
+        "TRUE"
+)]
 
 if (!is.null(params$include_regions)) {
     include_regions <- str_split(params$include_regions, ",")[[1]]
-    archr_proj <- archr_proj[which(getCellColData(archr_proj, select = region_column, drop = TRUE) %in% include_regions)]
+    archr_proj <- archr_proj[which(
+        getCellColData(archr_proj, select = region_column, drop = TRUE) %in%
+            include_regions
+    )]
 }
 
 # Define groups
-df <- getCellColData(archr_proj, select = c(cell_type_column, patient_column, region_column), drop = TRUE)
+df <- getCellColData(
+    archr_proj,
+    select = c(cell_type_column, patient_column, region_column),
+    drop = TRUE
+)
 low <- c("Malignant_NPC1", "Malignant_NPC2", "Malignant_OPC")
 high <- "Invasive-high_OPC_NPC1"
 
 # Differential accessibility analysis
-archr_proj_low_and_high <- archr_proj[which(getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in% c(low, high))]
-archr_proj_low <- archr_proj_low_and_high[which(getCellColData(archr_proj_low_and_high, select = cell_type_column, drop = TRUE) %in% low)]
-archr_proj_high <- archr_proj_low_and_high[which(getCellColData(archr_proj_low_and_high, select = cell_type_column, drop = TRUE) %in% high)]
+archr_proj_low_and_high <- archr_proj[which(
+    getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in%
+        c(low, high)
+)]
+archr_proj_low <- archr_proj_low_and_high[which(
+    getCellColData(
+        archr_proj_low_and_high,
+        select = cell_type_column,
+        drop = TRUE
+    ) %in%
+        low
+)]
+archr_proj_high <- archr_proj_low_and_high[which(
+    getCellColData(
+        archr_proj_low_and_high,
+        select = cell_type_column,
+        drop = TRUE
+    ) %in%
+        high
+)]
 
-metadata <- getCellColData(archr_proj_low_and_high,
-    select = c(cell_type_column, patient_column, region_column), drop = TRUE
+metadata <- getCellColData(
+    archr_proj_low_and_high,
+    select = c(cell_type_column, patient_column, region_column),
+    drop = TRUE
 )
 metadata <- as.data.frame(metadata) %>%
     mutate(low_and_high = ifelse(!!sym(cell_type_column) == low, "low", "high"))
@@ -65,9 +123,15 @@ DiffLMM_results <- DiffLMM(
     treatment.levels = c("low", "high"),
     ncores = 8
 )
-saveRDS(DiffLMM_results, file = paste0(out_dir, "/DiffLMM_low_vs_high.rds"))
+saveRDS(
+    DiffLMM_results,
+    file = file.path(params$output_dir, "FigS8e_DiffLMM_low_vs_high.rds")
+)
 
-DiffLMM_results <- readRDS(paste0(out_dir, "/DiffLMM_low_vs_high.rds"))
+DiffLMM_results <- readRDS(file.path(
+    params$output_dir,
+    "FigS8e_DiffLMM_low_vs_high.rds"
+))
 
 DiffLMM_results <- DiffLMM_results %>%
     mutate(log2FC = log2(fc))
@@ -90,13 +154,18 @@ marker_list <- marker_list[!is.na(FDR), ]
 marker_list <- marker_list[name %in% top_genes, ]
 marker_list$FDR <- p.adjust(marker_list$Pval, method = "fdr")
 
-marker_list <- marker_list %>% mutate(
-    comparison = paste0(high, "_vs_All"),
-    cell_type = paste0(high, "_vs_All"),
-)
+marker_list <- marker_list %>%
+    mutate(
+        comparison = paste0(high, "_vs_All"),
+        cell_type = paste0(high, "_vs_All"),
+    )
 
 # Volcano plot for differentially accessible genes and NOTCH signaling pathway genes
-marker_list$label <- ifelse(marker_list$FDR < 0.05 & abs(as.numeric(marker_list$log2FC)) > 0.1, "adj_p<0.05 & log2FC>0.1", "adj_p>=0.05 or log2FC<0.1")
+marker_list$label <- ifelse(
+    marker_list$FDR < 0.05 & abs(as.numeric(marker_list$log2FC)) > 0.1,
+    "adj_p<0.05 & log2FC>0.1",
+    "adj_p>=0.05 or log2FC<0.1"
+)
 marker_list <- marker_list[!is.na(FDR), ]
 
 # Specify the log2FC and FDR cutoffs
@@ -105,42 +174,87 @@ curr.fdr <- 0.05
 
 # Align significant and insignificant genes
 marker_list <- marker_list %>%
-    mutate(diffaccessible = case_when(
-        log2FC > curr.log2FC & FDR <= curr.fdr ~ "Accessible in Invasive-high OPC/NPC1",
-        log2FC < -curr.log2FC & FDR <= curr.fdr ~ "Accessible in Progenitor-like (NPC + OPC)",
-        TRUE ~ "Not significant"
-    ))
+    mutate(
+        diffaccessible = case_when(
+            log2FC > curr.log2FC & FDR <= curr.fdr ~
+                "Accessible in Invasive-high OPC/NPC1",
+            log2FC < -curr.log2FC & FDR <= curr.fdr ~
+                "Accessible in Progenitor-like (NPC + OPC)",
+            TRUE ~ "Not significant"
+        )
+    )
 
 # change the order of the factor
-marker_list$diffaccessible <- factor(marker_list$diffaccessible, levels = c("Accessible in Invasive-high OPC/NPC1", "Not significant", "Accessible in Progenitor-like (NPC + OPC)"))
+marker_list$diffaccessible <- factor(
+    marker_list$diffaccessible,
+    levels = c(
+        "Accessible in Invasive-high OPC/NPC1",
+        "Not significant",
+        "Accessible in Progenitor-like (NPC + OPC)"
+    )
+)
 
 # Generate label for plot annotation
 marker_list$dalabel <- NA
-marker_list$dalabel[marker_list$diffaccessible != "Not significant"] <- marker_list$name[marker_list$diffaccessible != "Not significant"]
+marker_list$dalabel[
+    marker_list$diffaccessible != "Not significant"
+] <- marker_list$name[marker_list$diffaccessible != "Not significant"]
 
 # Overlay the volcano plot with the NOTCH signaling pathway genes
+# TODO @Yiyan-YW this is missing in your list of params at start
 NOTCH <- all_gene_sets %>%
     filter(gs_name %in% c("WP_NOTCH_SIGNALING")) %>%
     pull(gene_symbol)
 Oligo <- all_gene_sets %>%
     filter(gs_name %in% c("GOBERT_OLIGODENDROCYTE_DIFFERENTIATION_DN")) %>%
     pull(gene_symbol)
+
 marker_list <- marker_list %>%
-    mutate(highlight = case_when(
-        name %in% NOTCH & diffaccessible == "Accessible in invasive-high OPC/NPC1" ~ "NOTCH",
-        name %in% Oligo & diffaccessible == "Accessible in invasive-high OPC/NPC1" ~ "Oligo",
-        TRUE ~ "no"
-    ))
-color_palette <- c("yes" = "#d61f26", "no" = "black", "specific_gene" = "#00798CFF", "NOTCH" = "#89181A", "Oligo" = "#F58B1F")
+    mutate(
+        highlight = case_when(
+            name %in%
+                NOTCH &
+                diffaccessible == "Accessible in invasive-high OPC/NPC1" ~
+                "NOTCH",
+            name %in%
+                Oligo &
+                diffaccessible == "Accessible in invasive-high OPC/NPC1" ~
+                "Oligo",
+            TRUE ~ "no"
+        )
+    )
+color_palette <- c(
+    "yes" = "#d61f26",
+    "no" = "black",
+    "specific_gene" = "#00798CFF",
+    "NOTCH" = "#89181A",
+    "Oligo" = "#F58B1F"
+)
 
 # Create the volcano plot with highlighted genes
-volc <- ggplot(data = marker_list, aes(x = log2FC, y = -log10(FDR), label = name)) +
+volc <- ggplot(
+    data = marker_list,
+    aes(x = log2FC, y = -log10(FDR), label = name)
+) +
     geom_point(aes(color = highlight), size = 1, alpha = 0.25, stroke = NA) +
-    geom_point(data = marker_list[marker_list$highlight != "no", ], aes(color = highlight), size = 1.5) +
+    geom_point(
+        data = marker_list[marker_list$highlight != "no", ],
+        aes(color = highlight),
+        size = 1.5
+    ) +
     geom_vline(xintercept = curr.log2FC, linetype = "dashed", alpha = 0.5) +
     geom_vline(xintercept = -curr.log2FC, linetype = "dashed", alpha = 0.5) +
-    geom_hline(yintercept = -log10(curr.fdr), linetype = "dashed", alpha = 0.5) +
-    expand_limits(x = c(-ceiling(max(abs(marker_list$log2FC)) * 10) / 10, ceiling(max(abs(marker_list$log2FC)) * 10) / 10)) +
+    geom_hline(
+        yintercept = -log10(curr.fdr),
+        linetype = "dashed",
+        alpha = 0.5
+    ) +
+    expand_limits(
+        x = c(
+            -ceiling(max(abs(marker_list$log2FC)) * 10) / 10,
+            ceiling(max(abs(marker_list$log2FC)) * 10) / 10
+        )
+    ) +
     geom_label_repel(
         data = marker_list[marker_list$highlight %in% c("NOTCH"), ],
         fill = "white",
@@ -152,7 +266,11 @@ volc <- ggplot(data = marker_list, aes(x = log2FC, y = -log10(FDR), label = name
         show.legend = FALSE,
         max.overlaps = Inf,
         force = 2,
-        nudge_x = ifelse(ceiling(max(abs(marker_list$log2FC)) * 10) / 10 > 1, 0.3, 0.15),
+        nudge_x = ifelse(
+            ceiling(max(abs(marker_list$log2FC)) * 10) / 10 > 1,
+            0.3,
+            0.15
+        ),
         nudge_y = 0.3
     ) +
     geom_label_repel(
@@ -166,10 +284,17 @@ volc <- ggplot(data = marker_list, aes(x = log2FC, y = -log10(FDR), label = name
         show.legend = FALSE,
         max.overlaps = Inf,
         force = 2,
-        nudge_x = ifelse(ceiling(max(abs(marker_list$log2FC)) * 10) / 10 > 1, 0.3, 0.15),
+        nudge_x = ifelse(
+            ceiling(max(abs(marker_list$log2FC)) * 10) / 10 > 1,
+            0.3,
+            0.15
+        ),
         nudge_y = 0.3
     ) +
-    scale_color_manual(values = color_palette, guide = guide_legend(title = "")) +
+    scale_color_manual(
+        values = color_palette,
+        guide = guide_legend(title = "")
+    ) +
     guides(color = guide_legend(title = "")) +
     labs(
         x = expression(Log[2] * " Fold Change (Gene accessibility socre)"),
@@ -185,7 +310,13 @@ volc <- ggplot(data = marker_list, aes(x = log2FC, y = -log10(FDR), label = name
         panel.grid.minor = element_blank()
     )
 ggsave(
-    filename = paste0("DiffAccess_", "all", "_low_vs_high_highlight_specific_gene.pdf"),
-    path = out_dir,
-    units = "in", width = 5, height = 6
+    filename = paste0(
+        "FigS8e_DiffAccess_",
+        "all",
+        "_low_vs_high_highlight_specific_gene.pdf"
+    ),
+    path = params$plot_dir,
+    units = "in",
+    width = 5,
+    height = 6
 )
