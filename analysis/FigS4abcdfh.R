@@ -264,7 +264,6 @@ dev.off()
 # ---------------------------------------------------------------------------- #
 #                                  Figure S4c                                  #
 # ---------------------------------------------------------------------------- #
-# TODO @Bensonwu02 would this be correct?
 degs <- readxl::read_excel(
     params$path_to_de_genes_table,
     sheet = "DEGs",
@@ -273,9 +272,6 @@ degs <- readxl::read_excel(
     data.frame()
 degs_up <- degs %>%
     filter(Direction == "Upregulated in PT OPC/NPC1-like cells")
-
-# degs <- read.csv("de_results.csv") # DE results from Fig1i
-# up_sig <- degs %>% filter(log2FoldChange > log2(1.5) & padj < 0.05) # Get invasive-up genes
 
 gene_lists <- readxl::read_excel(params$path_to_genelists, skip = 1)
 

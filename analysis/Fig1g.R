@@ -21,14 +21,7 @@ params <- list(
 GaitiLabUtils::create_dir(params$output_dir)
 
 # ---- Load data & data wrangling ---- #
-# TODO @Bensonwu02 is this correct
-curr_gene_list <- readxl::read_excel(
-    params$path_to_de_genes_table,
-    sheet = "DEGs",
-    skip = 1
-) %>%
-    data.frame()
-# curr_gene_list <- read.csv("de_results.csv")
+curr_gene_list <- file.path(params$output_dir, "de_results.csv") # from Fig1f
 
 rownames(curr_gene_list) <- curr_gene_list$gene
 
@@ -42,11 +35,6 @@ ranked_genes_response$ranking <- rank(
     -ranked_genes_response$rank,
     ties.method = "first"
 )
-# TODO @Bensonwu02 this plot isn't saved, do we need it?
-ggplot(ranked_genes_response, aes(x = ranking, y = rank)) +
-    geom_bar(stat = "identity") +
-    ylab("Ranked List Metric (log2FoldChange)") +
-    xlab("Rank in Ordered Dataset")
 
 write.csv(
     ranked_genes_response,

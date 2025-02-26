@@ -75,14 +75,6 @@ dev_brain <- sceasy::convertFormat(
 # ---------------------------------------------------------------------------- #
 #                                   Figure 4a                                  #
 # ---------------------------------------------------------------------------- #
-# TODO @Bensonwu02 would this be correct?
-
-# invasive sig
-# degs <- read.csv("de_results.csv")
-# degs_up <- degs %>%
-#     filter(log2FoldChange > log2(1.5) & padj < 0.05)
-# degs_dn <- degs %>%
-#     filter(log2FoldChange < -log2(1.5) & padj < 0.05)
 degs <- readxl::read_excel(
     params$path_to_de_genes_table,
     sheet = "DEGs",

@@ -141,6 +141,9 @@ res_tbl <- res %>%
 # ---------------------------------- volcano --------------------------------- #
 de_results <- as.data.frame(res_tbl)
 
+# export results for Fig1g script
+write.csv(de_results, file.path(params$output_dir, "de_results.csv"))
+
 # Thresholds
 fc <- log2(1.5)
 p_valadj <- 0.05
@@ -158,11 +161,6 @@ rownames(de_results) <- de_results$gene
 # Label genes
 gene_lists <- readxl::read_excel(params$path_to_genelists, skip = 1)
 
-# TODO check if this is correct @Bensonwu02
-# up <- read.csv("gene_lists/invasivity.csv")
-# up <- up %>% filter(direction == "Anticorrelated")
-# up <- up$Gene
-
 # Venkataramani 2022
 up <- gene_lists %>%
     filter(!is.na(Venkataramani_invasivity_up)) %>%
@@ -176,9 +174,6 @@ down <- gene_lists %>%
     filter(!is.na(Hai_connectivity_up)) %>%
     pull(Hai_connectivity_up)
 
-# down <- read.csv("gene_lists/hai_connectivity.csv")
-# down <- down %>% filter(direction == "Up")
-# down <- down$Gene
 custom_labs_down <- down[
     down %in% (de_results$gene[de_results$diffexpressed == "DOWN"])
 ]

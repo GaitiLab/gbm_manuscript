@@ -116,14 +116,6 @@ gene_list <- lapply(
     }
 )
 
-# Invasive signature
-# TODO @Bensonwu02 is this correct
-# degs <- read.csv("/de_results.csv")
-# degs_up <- degs %>%
-#     filter(log2FoldChange > 1 & padj < 0.05)
-# degs_dn <- degs %>%
-#     filter(log2FoldChange < -1 & padj < 0.05)
-
 degs <- readxl::read_excel(
     params$path_to_de_genes_table,
     sheet = "DEGs",

@@ -179,14 +179,7 @@ ggsave(
 # ---------------------------------------------------------------------------- #
 #                                   Figure 4e                                  #
 # ---------------------------------------------------------------------------- #
-# curr_gene_list <- read.csv("de_results.csv") # import de results from fig 1i
-# TODO @Bensonwu02 is this correct
-curr_gene_list <- readxl::read_excel(
-    params$path_to_de_genes_table,
-    sheet = "DEGs",
-    skip = 1
-) %>%
-    data.frame()
+curr_gene_list <- file.path(params$output_dir, "de_results.csv") # from Fig1f
 
 rownames(curr_gene_list) <- curr_gene_list$gene
 

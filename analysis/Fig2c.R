@@ -210,13 +210,7 @@ build_adjacency_table <- function(spot_pos_type) {
 }
 
 # ---- Load data & data wrangling ---- #
-# TODO @Bensonwu02 check if this correct
-hypoxia_markers <- readxl::read_excel(params$path_to_genelists, skip = 1) %>%
-    filter(!is.na(Hallmark_Hypoxia)) %>%
-    pull(Hallmark_Hypoxia)
-
 # Load DEGs
-# TODO @Bensonwu02 would this be correct?
 degs <- readxl::read_excel(
     params$path_to_de_genes_table,
     sheet = "DEGs",
@@ -233,12 +227,6 @@ degs_dn <- degs %>%
     pull(gene)
 
 degs_list <- list(degs_up, degs_dn)
-# degs <- read.csv("de_results.csv")
-# degs_up <- degs %>%
-#     filter(log2FoldChange > log2(1.5) & padj < 0.05)
-# degs_dn <- degs %>%
-#     filter(log2FoldChange < -log2(1.5) & padj < 0.05)
-# degs_list <- list(degs_up$gene, degs_dn$gene)
 
 # ------------------------- Load Greenwald 2024 data ------------------------- #
 # Load Greenwald et al 2024 data
@@ -303,12 +291,11 @@ greenwald <- sapply(data_dirs, function(dir) {
 
     seurat_obj <- AddModuleScore(
         seurat_obj,
-        features = c(degs_list, list(hypoxia = hypoxia_markers)),
+        features = c(degs_list),
         name = "gs",
         assay = "SCT"
     )
     seurat_obj$neuronal_sig <- seurat_obj$gs1 - seurat_obj$gs2
-    seurat_obj$hypoxia <- seurat_obj$gs3
 
     print(head(seurat_obj[[]]))
 
