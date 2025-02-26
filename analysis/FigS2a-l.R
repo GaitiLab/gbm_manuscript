@@ -735,100 +735,83 @@ ggsave(
 # ---------------------------------------------------------------------------- #
 #                                  Figure S2k                                  #
 # ---------------------------------------------------------------------------- #
+gene_lists <- readxl::read_excel(params$path_to_genelists, skip = 1)
 
 # Invasivity signature (Venkataramani 2022)
-invasivity <- read.csv(
-    "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/invasivity.csv"
-)
-invasivity_up <- invasivity %>%
-    filter(direction == "Anticorrelated")
-invasivity_dn <- invasivity %>%
-    filter(direction == "Correlated")
-invasivity <- list(invasivity_up$Gene, invasivity_dn$Gene)
+invasivity_up <- gene_lists %>%
+    filter(!is.na(Venkataramani_invasivity_up)) %>%
+    pull(Venkataramani_invasivity_up)
+
+invasivity_dn <- gene_lists %>%
+    filter(!is.na(Venkataramani_invasivity_dn)) %>%
+    pull(Venkataramani_invasivity_dn)
+
+invasivity <- list(invasivity_up, invasivity_dn)
 names(invasivity) <- c("invasivity_up", "invasivity_dn")
 
 # Connectivity (Hai 2024)
-connectivity <- read.csv(
-    "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/hai_connectivity.csv"
-)
-connectivity_up <- connectivity %>%
-    filter(direction == "Up")
-connectivity_dn <- connectivity %>%
-    filter(direction == "Down")
-connectivity <- list(connectivity_up$Gene, connectivity_dn$Gene)
+connectivity_up <- gene_lists %>%
+    filter(!is.na(Hai_connectivity_up)) %>%
+    pull(Hai_connectivity_up)
+
+connectivity_dn <- gene_lists %>%
+    filter(!is.na(Hai_connectivity_dn)) %>%
+    pull(Hai_connectivity_dn)
+
+connectivity <- list(connectivity_up, connectivity_dn)
 names(connectivity) <- c("Connectivity_up", "Connectivity_dn")
 
 # Developmental, injury response (Richards 2021)
-richards_markers <- read.csv(file.path(
-    "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/Richards_gene_list.csv"
-))
-richards_markers <- na.omit(richards_markers)
+richards_dev <- gene_lists %>%
+    filter(!is.na(Richards_Developmental)) %>%
+    pull(Richards_Developmental)
 
-richards_gene_list <- list()
-for (i in 1:nrow(richards_markers)) {
-    richards_gene_list[[toString(richards_markers[i, "Group"])]] <- append(
-        richards_gene_list[[toString(richards_markers[i, "Group"])]],
-        toString(richards_markers[i, "Gene"])
-    )
-}
-richards_gene_list <- richards_gene_list[1:2]
+richards_injury <- gene_lists %>%
+    filter(!is.na(Richards_Injury_Response)) %>%
+    pull(Richards_Injury_Response)
 
-cell_type <- c()
-for (i in 1:length(richards_gene_list)) {
-    cell_type <- c(cell_type, paste0("Richards_", names(richards_gene_list)[i]))
-}
-names(richards_gene_list) <- cell_type
+richards <- list(richards_dev, richards_injury)
+names(richards) <- c("Richards_Developmental", "Richards_Injury_Response")
 
-hypoxia_markers <- read.csv(
-    "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/hypoxia_markers.csv"
-)
-hypoxia_markers <- list(hypoxia_markers[, 2])
+# Hallmark hypoxia
+hypoxia_markers <- gene_lists %>%
+    filter(!is.na(Hallmark_Hypoxia)) %>%
+    pull(Hallmark_Hypoxia)
+
+hypoxia_markers <- list(hypoxia_markers)
 names(hypoxia_markers) <- "Hypoxia"
 
-tnf_markers <- read.csv(
-    "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/tnf_alpha_markers.csv"
-)
-tnf_markers <- list(tnf_markers[, 2])
+# Hallmark TNF alpha
+tnf_markers <- gene_lists %>%
+    filter(!is.na(Hallmark_TNF_alpha)) %>%
+    pull(Hallmark_TNF_alpha)
+
+tnf_markers <- list(tnf_markers)
 names(tnf_markers) <- "TNF_alpha"
 
-emt_markers <- read.csv(
-    "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/EMT_markers.csv"
-)
-emt_markers <- list(emt_markers[, 2])
+# Hallmark EMT
+emt_markers <- gene_lists %>%
+    filter(!is.na(Hallmark_EMT)) %>%
+    pull(Hallmark_EMT)
+
+emt_markers <- list(emt_markers)
 names(emt_markers) <- "EMT"
 
-infiltrating_margin <- c(
-    "ATP1A2",
-    "FGFR3",
-    "LMO3",
-    "NCAN",
-    "FXYD1",
-    "PSD2",
-    "PRODH",
-    "HIF3A",
-    "HRSP12",
-    "KCNN3",
-    "PPM1K",
-    "KCNJ10",
-    "ADCYAP1R1",
-    "BMP7",
-    "KAT2B",
-    "CNTN1",
-    "SAMD9L",
-    "SLC7A11",
-    "ECHDC2",
-    "FAM181B",
-    "SALL2",
-    "SASH1"
-) # Darmanis et al. 2017
+# Darmanis 2017
+infiltrating_margin <- gene_lists %>%
+    filter(!is.na(Darmanis_infiltration)) %>%
+    pull(Darmanis_infiltration)
+
 infiltrating_margin <- list(infiltrating_margin)
 names(infiltrating_margin) <- "Infiltration"
 
 # Garofano
-garofano <- read.csv(
-    "/cluster/projects/gaitigroup/Users/Benson/Parsebio/gene_lists/garofano.csv"
-)
-garofano <- as.vector(garofano)
+garofano_neu <- gene_lists %>%
+    filter(!is.na(Garofano_NEU)) %>%
+    pull(Garofano_NEU)
+
+garofano_neu <- list(garofano_neu)
+names(garofano_neu) <- "Infiltration"
 
 # Combine gene signatures
 
@@ -839,7 +822,7 @@ genesets <- c(
     tnf_markers,
     emt_markers,
     connectivity,
-    garofano["NEU"],
+    garofano_neu,
     infiltrating_margin
 )
 
