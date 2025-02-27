@@ -15,7 +15,8 @@ pacman::p_load(
     colorRamp2,
     fgsea,
     GBMutils,
-    scales
+    scales,
+    GaitiLabUtils
 )
 
 region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
