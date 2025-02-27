@@ -28,6 +28,7 @@ region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
 params <- list(
     path_to_seurat_object = "",
     plot_dir = "output/submission/figures",
+    # Download data from https://github.com/linnarsson-lab/developing-human-brain
     braun_h5ad_path = "developing_opc.h5ad",
     braun_subsampled_h5ad_path = "developing_brain_subsampled.h5ad",
     path_to_genelists = "misc/SuppTables/Table S2.xlsx"

@@ -28,6 +28,7 @@ params <- list(
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
     path_to_de_genes_table = "misc/SuppTables/Table S3.xlsx",
+    # Download ST data from https://github.com/tiroshlab/Spatial_Glioma
     path_to_greenwald_data_dir = "data/Greenwald2023",
     path_to_greenwald_metadata = "misc/Greenwald2023_metadata.csv",
     path_to_genelists = "misc/SuppTables/Table S2.xlsx"
