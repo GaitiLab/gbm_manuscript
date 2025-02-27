@@ -13,10 +13,9 @@ pacman::p_load(
     patchwork,
     scales,
     here,
-    GBMutils
+    GBMutils,
+    GaitiLabUtils
 )
-
-source(here::here("R/utils/gbm_project.R"))
 
 # Enter paths here
 path_to_seurat_object <- ""
