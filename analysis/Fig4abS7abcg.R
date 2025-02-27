@@ -30,11 +30,7 @@ params <- list(
     plot_dir = "output/submission/figures",
     braun_h5ad_path = "developing_opc.h5ad",
     braun_subsampled_h5ad_path = "developing_brain_subsampled.h5ad",
-    path_to_genelists = "misc/SuppTables/Table S2.xlsx",
-    postsynapse_gmt_path = "misc/internal/GOCC_POSTSYNAPTIC_MEMBRANE.v2023.2.Hs.gmt",
-    synapse_gmt_path = "misc/internal/GOCC_SYNAPTIC_MEMBRANE.v2023.2.Hs.gmt",
-    synaptic_signaling_gmt_path = "misc/internal/GOBP_SYNAPTIC_SIGNALING.v2023.2.Hs.gmt",
-    diffusion_comps_path = "diffusion_comps.csv"
+    path_to_genelists = "misc/SuppTables/Table S2.xlsx"
 )
 
 # Creating directories needed for outputs
@@ -217,12 +213,13 @@ neftel_gene_list <- lapply(
 
 opc <- neftel_gene_list$Neftel_OPC
 
-postsynapse <- gmtPathways(params$postsynapse_gmt_path)
-postsynapse <- postsynapse$GOCC_POSTSYNAPTIC_MEMBRANE
-synapse <- gmtPathways(params$synapse_gmt_path)
-synapse <- synapse$GOCC_SYNAPTIC_MEMBRANE
-synaptic_signaling <- gmtPathways(params$synaptic_signaling_gmt_path)
-synaptic_signaling <- synaptic_signaling$GOBP_SYNAPTIC_SIGNALING
+synapse <- gene_lists %>%
+    filter(!is.na(GOCC_SYNAPTIC_MEMBRANE)) %>%
+    pull(GOCC_SYNAPTIC_MEMBRANE)
+
+synaptic_signaling <- gene_lists %>%
+    filter(!is.na(GOBP_SYNAPTIC_SIGNALING)) %>%
+    pull(GOBP_SYNAPTIC_SIGNALING)
 
 gene_list <- list(degs_up$gene, degs_dn$gene, opc, synapse, synaptic_signaling)
 
@@ -317,7 +314,7 @@ ggsave(filename = "FigS7g.pdf", path = params$plot_dir, height = 6, width = 4)
 #                                   Figure 4b                                  #
 # ---------------------------------------------------------------------------- #
 
-diff_comp <- read.csv(params$diffusion_comps_path)
+diff_comp <- read.csv(file.path(params$output_dir, "diffusion_comps.csv"))
 pseudotime <- diff_comp %>% dplyr::select(dpt)
 colnames(pseudotime) <- "pseudotime"
 df <- cbind(seurat_obj[[]], pseudotime)
