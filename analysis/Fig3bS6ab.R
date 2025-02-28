@@ -211,8 +211,6 @@ manual_inv_makers <- paste0(manual_inv_makers, "_")
 AP1_TF <- c("FOS", "FOSB", "FOSL1", "FOSL2", "FOSL2", "JUN", "JUNB", "JUND")
 
 # Motifs to highlight in ChromVAR
-# TODO @Yiyan-YW can the line below be removed?
-# Positive_TF <- corGEM_MM$MotifMatrix_name[corGEM_MM$cor > 0 & corGEM_MM$maxDelta > quantile(corGEM_MM$maxDelta, 0.9)]
 Positive_TF <- corGEM_MM$MotifMatrix_name[
     corGEM_MM$cor > 0 &
         corGEM_MM$Inv_delta > quantile(corGEM_MM$Inv_delta, 0.95)
@@ -357,58 +355,6 @@ ggsave(
     height = 7.5
 )
 
-ggplot(data.frame(corGEM_MM), aes(cor, Inv_delta, color = TFRegulator)) +
-    geom_point() +
-    GBM_theme() +
-    geom_vline(xintercept = 0) +
-    geom_hline(yintercept = 0) +
-    geom_hline(
-        yintercept = quantile(corGEM_MM$Inv_delta, 0.95),
-        lty = "dashed",
-        color = "darkgrey"
-    ) +
-    scale_color_manual(
-        values = c(
-            "Not significant" = "darkgrey",
-            "Putative regulator" = "#D1495BFF",
-            "Candidate identified in SCENIC+" = "#EDAE49FF",
-            "NPC1/OPC markers" = "#00798CFF",
-            "AP-1 family TFs" = "#C05E00"
-        )
-    ) +
-    geom_label_repel(
-        data = data.frame(corGEM_MM),
-        aes(label = MotifMatrix_name),
-        size = 3,
-        nudge_x = 0.1,
-        nudge_y = 0.1
-    ) +
-    labs(
-        x = "Correlation to gene expression",
-        y = "TF motif accessibility difference between \ninvasive-high OPC/NPC1 and progenitor-like"
-    ) +
-    scale_y_continuous(
-        expand = c(0, 0),
-        limits = c(
-            min(corGEM_MM$Inv_delta) * 1.05,
-            max(corGEM_MM$Inv_delta) * 1.05
-        )
-    ) +
-    scale_x_continuous(
-        expand = c(0, 0),
-        limits = c(-1, 1)
-    ) +
-    theme(legend.position = "bottom", legend.title = element_blank())
-ggsave(
-    paste0(
-        plot_dir,
-        "/corGEM_MM_TF_Regulator_all_new_SCENIC+",
-        params$background_peaks,
-        ".pdf"
-    ),
-    width = 8,
-    height = 8
-)
 
 # cell type annotation
 cell_annotation <- getCellColData(archr_proj, select = c(cell_type_column)) |>

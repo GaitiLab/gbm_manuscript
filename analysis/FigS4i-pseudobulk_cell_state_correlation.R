@@ -8,9 +8,28 @@ pacman::p_unload()
 GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
+pacman::p_load(
+    argparse,
+    data.table,
+    ggplot2,
+    patchwork,
+    ggrepel,
+    Signac,
+    Seurat,
+    stringr,
+    varhandle,
+    log4r,
+    tidyverse,
+    scales,
+    dplyr,
+    stats,
+    ggpubr,
+    RColorBrewer,
+    GBMutils,
+    circlize,
+    ComplexHeatmap
+)
 
-# TODO @Yiyan-YW add pacman::p_load() with needed packages
-pacman::p_load(Seurat, data.table, tidyverse, stringr, ComplexHeatmap)
 params <- list(
     seurat_obj_path = "",
     output_dir = "output/submission",

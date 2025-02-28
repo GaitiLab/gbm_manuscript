@@ -89,10 +89,6 @@ mIHC_df <- mIHC_df |>
     )
 definition <- "SOX2+ & ASCL1+"
 
-# TODO can we remove this? @Yiyan-YW
-# params$output_dir <- file.path(params$output_dir, definition)
-# GaitiLabUtils::create_dir(params$output_dir)
-
 # count the number of cells in each category for each sample
 summary <- mIHC_df |>
     group_by(cell_type, region) |>
@@ -185,12 +181,9 @@ df <- mIHC_df |>
     ungroup() |>
     group_by(`Slide Name`, region)
 
-# TODO removed 'filtering_method' in df_filtering() in line below as df_filtering only takes 2 arguments, is that correct @Yiyan-YW
 df_FOV <- df_filtering(df, "SOX2_pos")
 df_FOV <- df_FOV |>
     mutate(aggregation = SOX2_pos)
-
-# TODO removed 'aggregation_method' in df_aggregation() in line below as df_filtering only takes 2 arguments, is that correct @Yiyan-YW
 
 summary_data <- df_aggregation(df_FOV, "SOX2_pos")
 
@@ -263,11 +256,9 @@ df <- mIHC_df |>
     ) |>
     ungroup() |>
     group_by(`Slide Name`, region)
-# TODO removed 'filtering_method' in df_filtering() in line below as df_filtering only takes 2 arguments, is that correct @Yiyan-YW
 df_FOV <- df_filtering(df, "progenitor_pos")
 df_FOV <- df_FOV |>
     mutate(aggregation = progenitor_pos)
-# TODO removed 'aggregation_method' in df_aggregation() in line below as df_filtering only takes 2 arguments, is that correct @Yiyan-YW
 summary_data <- df_aggregation(df_FOV, "progenitor_pos")
 
 ggplot(df_FOV, aes(x = region, y = aggregation, color = region)) +
@@ -341,9 +332,7 @@ df <- mIHC_df |>
     ) |>
     ungroup() |>
     group_by(`Slide Name`, region)
-# TODO removed 'filtering_method' in df_filtering() in line below as df_filtering only takes 2 arguments, is that correct @Yiyan-YW
 df_filtered <- df_filtering(df, "inv_pos")
-# TODO removed 'aggregation_method' in df_aggregation() in line below as df_filtering only takes 2 arguments, is that correct @Yiyan-YW
 df <- df_aggregation(df_filtered, "inv_pos")
 df_tumor <- df |>
     filter(region == "tumor bulk") |>

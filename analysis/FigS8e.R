@@ -10,7 +10,27 @@ GaitiLabUtils::set_wd()
 # ---- Setup script ---- #
 
 # Load libraries
-# TODO @Yiyan-YW add pacman::p_load() with needed packages
+pacman::p_load(
+    argparse,
+    varhandle,
+    log4r,
+    ArchR,
+    presto,
+    ggplot2,
+    ggrepel,
+    mitch,
+    fgsea,
+    readr, 
+    msigdbr,
+    escape,
+    dittoSeq,
+    tidyr,
+    dplyr,
+    stringr,
+    data.table,
+    ComplexHeatmap,
+    colorRamp2
+)
 
 params <- list(
     input = "/multiome_results/10_ArchR",
