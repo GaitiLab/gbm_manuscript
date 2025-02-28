@@ -8,8 +8,11 @@ pacman::p_unload()
 GaitiLabUtils::set_wd()
 
 # Load packages
-# TODO @Yiyan-YW add pacman::p_load() here
-pacman::p_load(Seurat, data.table, tidyverse, stringr, ggplot2, ggpubr)
+pacman::p_load(
+  Seurat, data.table, tidyverse, stringr, ggplot2, ggpubr,
+  argparse, ggExtra, patchwork, ggrepel, cowplot, Signac, varhandle, log4r,
+  scales, dplyr, stats, RColorBrewer, GBMutils, circlize, ComplexHeatmap
+)
 
 params <- list(
     seurat_obj_path = "",
@@ -24,11 +27,6 @@ curr_seurat_data <- readRDS(params$seurat_obj_path)
 DefaultAssay(curr_seurat_data) <- "RNA"
 
 # Invasive signature
-# TODO @Yiyan-YW is below correct?
-# inv_sig <- read.csv("misc/data/inv_sig.csv") %>% column_to_rownames("X")
-# inv_up_list <- list(inv_sig$inv_up)
-# inv_down_list <- list(inv_sig$inv_down)
-
 degs <- readxl::read_excel(
     params$path_to_de_genes_table,
     sheet = "DEGs",
