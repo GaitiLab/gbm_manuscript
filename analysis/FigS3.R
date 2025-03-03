@@ -22,7 +22,8 @@ pacman::p_load(
     GBMutils,
     scales,
     GaitiLabUtils,
-    Seurat
+    Seurat,
+    msigdbr
 )
 
 region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
@@ -302,24 +303,18 @@ msigdb_cat_list <- list(
     c("C5", "GO:MF")
 )
 
-# TODO @Bensonwu02 'msigdb' hasn't been specified before.
-msigdb_data <- fread(msigdb)
-
 universe_genes <- colnames(multiome_factors)
 
 for (curr_factor in names(markers)) {
-    log_info(paste0("ORA for ", curr_factor))
 
     all_sig_results <- c()
     for (j in seq(1, length(msigdb_cat_list))) {
         curr_cat <- msigdb_cat_list[[j]]
 
         if (length(curr_cat) == 2) {
-            curr_gene_sets <- msigdb_data[
-                gs_cat == curr_cat[1] & gs_subcat == curr_cat[2]
-            ]
+            curr_gene_sets <- msigdbr(species = "human", category = curr_cat[1], subcategory = curr_cat[2])
         } else {
-            curr_gene_sets <- msigdb_data[gs_cat == curr_cat[1]]
+            curr_gene_sets <- msigdbr(species = "human", category = curr_cat[1])
         }
 
         curr_msigdbr_list <- split(
@@ -406,9 +401,7 @@ for (curr_factor in names(markers)) {
     }
 }
 
-# TODO @Bensonwu02 changed this to explicit path as you specified before
 ora_res <- list.files(ora_dir, full.names = TRUE)
-# ora_res <- list.files("/ora", full.names = TRUE)
 
 ora_res <- ora_res[grepl("^Factor.*\\.csv$", basename(ora_res))]
 

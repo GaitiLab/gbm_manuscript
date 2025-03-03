@@ -266,16 +266,6 @@ markers <- markers %>%
 gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
 
 
-# TODO @Bensonwu02 i think this can be removed, pulling the genelists below
-# pathway_gobert <- gmt_import(
-#     "GOBERT_OLIGODENDROCYTE_DIFFERENTIATION_UP.v2023.2.Hs.gmt"
-# )
-# pathway_kim <- gmt_import(
-#     "KIM_ALL_DISORDERS_OLIGODENDROCYTE_NUMBER_CORR_UP.v2024.1.Hs.gmt"
-# )
-# pathway_neuro <- gmt_import(
-#     "KEGG_NEUROACTIVE_LIGAND_RECEPTOR_INTERACTION.v2024.1.Hs.gmt"
-# )
 pathway_gobert <- gene_lists %>%
     filter(!is.na(Gobert_Oligodendrocyte_Differentiation_Up)) %>%
     pull(Gobert_Oligodendrocyte_Differentiation_Up)
@@ -326,7 +316,6 @@ cluster_markers$label <- ifelse(
 cluster_markers$colour <- case_when(
     cluster_markers$gene %in%
         sig_genes &
-        # TODO @Bensonwu02 please check
         cluster_markers$gene %in% pathway_gobert ~
         "gobert",
     cluster_markers$gene %in%

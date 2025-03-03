@@ -27,7 +27,7 @@ params <- list(
     seurat_obj_path = "",
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
-    fgseares_c2_cp_path = "fgseaRes_c2_cp.csv",
+    fgseares_c2_cp_path = "misc/SuppTables/Table S2.xlsx",
     degs_table_path = "misc/SuppTables/Table S3.xlsx",
     genelists_path = "misc/SuppTables/Table S2.xlsx",
     gbmap_core_obj_path = "gbmap_core.rds"
@@ -40,9 +40,12 @@ GaitiLabUtils::create_dir(params$plot_dir)
 #                                  Figure S4a                                  #
 # ---------------------------------------------------------------------------- #
 
-# TODO @Bensonwu02 is this SuppTable S3 'C2_CP pathways?'
-res <- read.csv(params$fgseares_c2_cp_path)
-
+res <- readxl::read_excel(
+    params$fgseares_c2_cp_path,
+    sheet = "C2_CP pathways in inv high",
+    skip = 1
+    )
+    
 pathways <- c(
     "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
     "REACTOME_NEURONAL_SYSTEM",
@@ -320,7 +323,6 @@ dev.off()
 # ---------------------------------------------------------------------------- #
 #                                  Figure S4f                                  #
 # ---------------------------------------------------------------------------- #
-# TODO @Bensonwu02 can the commented code be removed; assuming the change was okay?
 degs <- readxl::read_excel(
     params$degs_table_path,
     sheet = "DEGs",
@@ -334,12 +336,6 @@ degs_dn <- degs %>%
         Direction == "Upregulated in tumor bulk (TE+TC) OPC/NPC1-like cells"
     )
 
-# degs <- read.csv("de_results.csv")
-# fc <- log2(1.5)
-# degs_up <- degs %>%
-#     filter(log2FoldChange > fc & padj < 0.05)
-# degs_dn <- degs %>%
-#     filter(log2FoldChange < -fc & padj < 0.05)
 degs_list <- list(degs_up$gene, degs_dn$gene)
 
 gbmap <- readRDS(params$gbmap_core_obj_path) # path to gbmap obj
