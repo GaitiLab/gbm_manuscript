@@ -1,8 +1,13 @@
-# Code to reproduce Figure S3
+# ---- Code to reproduce Figure S3 ---- #
 
-if (!("pacman" %in% rownames(installed.packages()))) {
-    install.packages("pacman")
-}
+# Unload all previously loaded packages + remove previous environment
+rm(list = ls(all = TRUE))
+pacman::p_unload()
+
+# Set working directory
+GaitiLabUtils::set_wd()
+
+# ---- Setup script ---- #
 
 pacman::p_load(
     data.table,
@@ -16,26 +21,33 @@ pacman::p_load(
     fgsea,
     GBMutils,
     scales,
-    GaitiLabUtils
+    GaitiLabUtils,
+    Seurat
 )
 
 region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
 
-# Enter paths here
-output_dir <- ""
+# Required inputs
+params <- list(
+    output_dir = "output/submission",
+    plot_dir = "output/submission/figures",
+    seurat_obj_path = "",
+    protein_coding_genes_list_path = "misc/ensembl_protein_coding_genes.csv",
+    multiome_factors_spectra_path = "misc/multiome_top_up_rna.spectra.k_7.dt_0_5.consensus.txt",
+    parsebio_factors_spectra_path = "misc/parsebio_top_up_rna.spectra.k_7.dt_0_5.consensus.txt",
+    usage_mtx_path = "misc/usage_mtx.csv",
+    genelists_path = "misc/SuppTables/Table S2.xlsx",
+)
 
 # Creating directories needed for outputs
-if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
-
-plot_dir <- paste0(output_dir, "/path_to_output_directory")
-if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
+GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
 
 # export data for cNMF
+seurat_obj <- readRDS(params$seurat_obj_path)
+seurat_obj <- subset(seurat_obj, subset = is_malignant_confident == TRUE)
 
-so <- readRDS("path_to_seurat_object")
-so <- subset(so, subset = is_malignant_confident == TRUE)
-
-split_list <- SplitObject(so, split.by = "Patient")
+split_list <- SplitObject(seurat_obj, split.by = "Patient")
 var_features <- c()
 for (x in split_list) {
     DefaultAssay(x) <- "RNA"
@@ -47,14 +59,14 @@ var_features <- data.frame(features = var_features) %>%
     group_by(features) %>%
     summarise(count = n()) %>%
     arrange(-count)
-protein_coding_genes <- read.csv("ensembl_protein_coding_genes.csv")
+protein_coding_genes <- read.csv(params$protein_coding_genes_list_path)
 var_features <- var_features[
     var_features$features %in% protein_coding_genes$hgnc_symbol,
 ]
 
 var_features <- var_features$features[1:2000]
 
-parse <- subset(so, subset = Platform == "ParseBio")
+parse <- subset(seurat_obj, subset = Platform == "ParseBio")
 rna_parse_counts <- parse@assays$RNA@counts[var_features, ]
 rna_parse_counts <- as.data.table(
     t(as.matrix(rna_parse_counts)),
@@ -62,7 +74,7 @@ rna_parse_counts <- as.data.table(
 )
 fwrite(
     rna_parse_counts,
-    file.path(output_dir, "malignant_RNA_counts_parse.tsv"),
+    file.path(params$output_dir, "malignant_RNA_counts_parse.tsv"),
     sep = "\t",
     quote = FALSE,
     row.names = FALSE
@@ -75,13 +87,13 @@ rna_parse_data <- as.data.table(
 )
 fwrite(
     rna_parse_data,
-    file.path(output_dir, "malignant_RNA_data_parse.tsv"),
+    file.path(params$output_dir, "malignant_RNA_data_parse.tsv"),
     sep = "\t",
     quote = FALSE,
     row.names = FALSE
 )
 
-multiome <- subset(so, subset = Platform == "Multiome")
+multiome <- subset(seurat_obj, subset = Platform == "Multiome")
 rna_multiome_counts <- multiome@assays$RNA@counts[var_features, ]
 rna_multiome_counts <- as.data.table(
     t(as.matrix(rna_multiome_counts)),
@@ -89,7 +101,7 @@ rna_multiome_counts <- as.data.table(
 )
 fwrite(
     rna_multiome_counts,
-    file.path(output_dir, "malignant_RNA_counts_multiome.tsv"),
+    file.path(params$output_dir, "malignant_RNA_counts_multiome.tsv"),
     sep = "\t",
     quote = FALSE,
     row.names = FALSE
@@ -102,7 +114,7 @@ rna_multiome_data <- as.data.table(
 )
 fwrite(
     rna_multiome_data,
-    file.path(output_dir, "malignant_RNA_data_multiome.tsv"),
+    file.path(params$output_dir, "malignant_RNA_data_multiome.tsv"),
     sep = "\t",
     quote = FALSE,
     row.names = FALSE
@@ -114,7 +126,7 @@ fwrite(
 # consensus by platform
 
 # Multiome
-multiome_factors <- read.table("multiome_rna.spectra.k_7.dt_0_5.consensus.txt")
+multiome_factors <- read.table(params$multiome_factors_spectra_path)
 
 multiome_geps <- lapply(
     seq(1, length(rownames(multiome_factors))),
@@ -126,7 +138,7 @@ multiome_geps <- lapply(
 names(multiome_geps) <- paste0("MultiomeFactor", seq(1, length(multiome_geps)))
 
 # Parsebio
-parse_factors <- read.table("parsebio_rna.spectra.k_7.dt_0_5.consensus.txt")
+parse_factors <- read.table(params$parsebio_factors_spectra_path)
 
 parse_geps <- lapply(
     seq(1, length(rownames(parse_factors))),
@@ -210,7 +222,11 @@ annotation_left <- rowAnnotation(
 )
 
 
-pdf(file = paste0(plot_dir, "/geps.pdf"), width = 10, height = 10)
+pdf(
+    file = file.path(params$plot_dir, "FigS3a_geps.pdf"),
+    width = 10,
+    height = 10
+)
 Heatmap(
     sim_mtx,
     show_row_names = FALSE,
@@ -250,7 +266,10 @@ colnames(consensus_mps) <- paste0(
     "Factor",
     seq(length(colnames(consensus_mps)), 1)
 )
-write.csv(consensus_mps, file.path(plot_dir, "consensus_mps.csv"))
+write.csv(
+    consensus_mps,
+    file.path(params$output_dir, "FigS3a_consensus_mps.csv")
+)
 
 # top 100 markers
 
@@ -262,16 +281,18 @@ markers <- sapply(colnames(consensus_mps), function(factor) {
     return(rownames(curr_mp)[1:100])
 })
 
-write.csv(markers, file.path(plot_dir, "consensus_mps_markers.csv"))
+write.csv(
+    markers,
+    file.path(params$output_dir, "FigS3a_consensus_mps_markers.csv")
+)
 
 # ---------------------------------------------------------------------------- #
 #                                    Fig S3b                                   #
 # ---------------------------------------------------------------------------- #
 markers <- as.vector(as.data.frame(markers))
 
-ora_dir <- file.path(plot_dir, "ora")
-if (!dir.exists(ora_dir)) dir.create(ora_dir, recursive = TRUE)
-
+ora_dir <- file.path(params$plot_dir, "ora")
+GaitiLabUtils::create_dir(ora_dir)
 msigdb_cat_list <- list(
     c("H"),
     c("C2", "CGP"),
@@ -281,6 +302,7 @@ msigdb_cat_list <- list(
     c("C5", "GO:MF")
 )
 
+# TODO @Bensonwu02 'msigdb' hasn't been specified before.
 msigdb_data <- fread(msigdb)
 
 universe_genes <- colnames(multiome_factors)
@@ -384,7 +406,9 @@ for (curr_factor in names(markers)) {
     }
 }
 
-ora_res <- list.files("/ora", full.names = TRUE)
+# TODO @Bensonwu02 changed this to explicit path as you specified before
+ora_res <- list.files(ora_dir, full.names = TRUE)
+# ora_res <- list.files("/ora", full.names = TRUE)
 
 ora_res <- ora_res[grepl("^Factor.*\\.csv$", basename(ora_res))]
 
@@ -506,8 +530,8 @@ for (path in ora_res) {
 plots <- wrap_plots(plots, ncol = 1, nrow = 5, guides = "collect")
 ggsave(
     plot = plots,
-    filename = "factors_ora.pdf",
-    path = plot_dir,
+    filename = "FigS3b_factors_ora.pdf",
+    path = params$plot_dir,
     width = 10,
     height = 20
 )
@@ -515,35 +539,28 @@ ggsave(
 # ---------------------------------------------------------------------------- #
 #                                  Figure S3c                                  #
 # ---------------------------------------------------------------------------- #
-usage <- read.csv("usage_mtx.csv", row.names = 1)
+usage <- read.csv(params$usage_mtx_path, row.names = 1)
 
 rna <- rbind(rna_multiome_data, rna_parse_data)
 
 colnames(usage) <- paste0("Factor", seq(length(colnames(usage)), 1)) # Ordering is reversed to match order in which factors appear in factor-factor heatmap
 rownames(usage) <- rownames(rna)
 
-so[["nmf"]] <- CreateAssayObject(t(usage))
-so <- AddMetaData(so, metadata = as.data.frame(usage))
+seurat_obj[["nmf"]] <- CreateAssayObject(t(usage))
+seurat_obj <- AddMetaData(seurat_obj, metadata = as.data.frame(usage))
 
-neftel_markers <- read.csv("Neftel_gene_list.csv")
+# Extract Neftel stignatures
+gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
+gene_list <- lapply(
+    gene_lists %>% dplyr::select(starts_with("Neftel_")) %>% as.list(),
+    function(gene_list) {
+        gene_list[!is.na(gene_list)]
+    }
+)
 
-gene_list <- list()
-for (i in 1:nrow(neftel_markers)) {
-    gene_list[[toString(neftel_markers[i, "Cell"])]] <- append(
-        gene_list[[toString(neftel_markers[i, "Cell"])]],
-        toString(neftel_markers[i, "Gene"])
-    )
-}
+seurat_obj <- AddModuleScore(seurat_obj, features = gene_list, name = "Neftel")
 
-cell_type <- c()
-for (i in 1:length(gene_list)) {
-    cell_type <- c(cell_type, paste0("Neftel_", names(gene_list)[i]))
-}
-names(gene_list) <- cell_type
-
-so <- AddModuleScore(so, features = gene_list, name = "Neftel")
-
-metadata <- so[[]]
+metadata <- seurat_obj[[]]
 metadata$Region <- factor(metadata$Region, levels = c("PT", "TE", "TC"))
 
 df <- metadata
@@ -585,8 +602,8 @@ for (factor in unique(df$Factor)) {
 plots <- wrap_plots(plots, ncol = 5, nrow = 1, guides = "collect")
 ggsave(
     plots,
-    filename = "Factors_boxplot_lmm.pdf",
-    path = plot_dir,
+    filename = "FigS3c_Factors_boxplot_lmm.pdf",
+    path = params$plot_dir,
     width = 12,
     height = 5
 )
@@ -600,7 +617,7 @@ p <- ggplot(df, aes(x = Region, y = num_cycling, fill = proliferating)) +
     geom_bar(position = "fill", stat = "identity") +
     theme_classic() +
     scale_fill_manual(values = c("#6E7E85", "#1C0F13"))
-ggsave(filename = "factor1_cycling_cells.pdf", path = plot_dir)
+ggsave(filename = "FigS3c_factor1_cycling_cells.pdf", path = params$plot_dir)
 
 # ---------------------------------------------------------------------------- #
 #                                 Figure S3d-e                                 #
@@ -676,10 +693,15 @@ for (factor in paste0("Factor", seq(1, length(colnames(usage))))) {
             ylab(paste0("Scaled ", state, " score")) +
             xlab(paste0("Scaled ", factor, " activation")) +
             GBM_theme()
-
         ggsave(
-            filename = paste0(state, "_score_vs_", factor, "_scaled.pdf"),
-            path = plot_dir
+            filename = paste0(
+                "FigS3e_",
+                state,
+                "_score_vs_",
+                factor,
+                "_scaled.pdf"
+            ),
+            path = params$plot_dir
         )
     }
 
@@ -690,7 +712,7 @@ for (factor in paste0("Factor", seq(1, length(colnames(usage))))) {
 corr_df <- as.data.frame(corr_df)
 
 pdf(
-    file = paste0(plot_dir, "/factor_state_correlation.pdf"),
+    file = file.path(params$plot_dir, "FigS3d_factor_state_correlation.pdf"),
     width = 12,
     height = 10
 )
@@ -759,8 +781,8 @@ for (factor in unique(df$Factor)) {
             step_increase = c(0, 0.1, 0.1)
         )
     ggsave(
-        filename = paste0("OPC_NPC1_", factor, ".pdf"),
-        path = plot_dir,
+        filename = paste0("FigS3f_OPC_NPC1_", factor, ".pdf"),
+        path = params$plot_dir,
         height = 8,
         width = 8
     )
@@ -784,8 +806,8 @@ p <- ggplot(df, aes(x = Region, y = percent)) +
     scale_fill_manual(values = c(region_cols[1], "#7F7F7F")) +
     stat_compare_means(comparisons = list(c("PT", "Tumor")))
 ggsave(
-    filename = "OPC_NPC1_ONLY_factor1_cycling_cells.pdf",
-    path = plot_dir,
+    filename = "FigS3f_OPC_NPC1_ONLY_factor1_cycling_cells.pdf",
+    path = params$plot_dir,
     height = 7,
     width = 5
 )

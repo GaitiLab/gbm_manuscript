@@ -7,7 +7,7 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
-# Load needed packages
+# Load required packages
 pacman::p_load(
     varhandle,
     ggplot2,
@@ -32,7 +32,7 @@ pacman::p_load(
     RColorBrewer
 )
 
-# Required inputs:
+# Required inputs
 params <- list(
     # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
 

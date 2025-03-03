@@ -21,6 +21,7 @@ pacman::p_load(
 )
 logr <- GaitiLabUtils::init_logging()
 
+# Required inputs
 params <- list(
     # path pointing to the parent directory with sample directories (masks + seurat obj)
     input_dir = "data/visiumhd/processed",
@@ -155,9 +156,6 @@ for (current_sample_id in sample_ids) {
         current_sample_id,
         paste0(current_sample_id, ".rds")
     )
-    current_sample_params$DE_markers_VisiumHD <- glue(
-        "data/VisiumHD/processed/{current_sample_id}_markers_by_celltype.rds"
-    )
 
     current_gene_list <- gene_lists[[current_sample_id]]
 
@@ -253,11 +251,6 @@ for (current_sample_id in sample_ids) {
             Label = palette_L1[!is.na(names(palette_L1))]
         )
     )
-    # # Ensure order of cell types
-    # mat <- mat[
-    #     c(names(current_gene_list), "Malignant", "Undetermined"),
-    #     gene_list_as_df$gene
-    # ]
 
     # Determine order of columns (cluster genes within each cell type)
     dend <- ComplexHeatmap::cluster_within_group(

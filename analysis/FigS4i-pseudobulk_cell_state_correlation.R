@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure 1a ---- #
+# ---- Code to reproduce Figure S4i ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -8,6 +8,8 @@ pacman::p_unload()
 GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(
     argparse,
     data.table,
@@ -30,6 +32,7 @@ pacman::p_load(
     ComplexHeatmap
 )
 
+# Required inputs
 params <- list(
     seurat_obj_path = "",
     output_dir = "output/submission",

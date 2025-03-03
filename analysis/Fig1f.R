@@ -7,7 +7,9 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
-# Load needed libraries
+# ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(
     data.table,
     patchwork,
@@ -22,13 +24,14 @@ pacman::p_load(
     Matrix.utils
 )
 
-# Required input:
+# Required inputs
 params <- list(
+    # Path to Seurat object generated using this manuscript's data
     path_to_seurat_object = "",
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
-    path_to_protein_coding_genes = "misc/ensembl_protein_coding_genes.csv",
-    path_to_genelists = "misc/SuppTables/Table S2.xlsx"
+    protein_coding_genes_list_path = "misc/ensembl_protein_coding_genes.csv",
+    genelists_path = "misc/SuppTables/Table S2.xlsx"
 )
 
 # Creating directories needed for outputs
@@ -64,7 +67,7 @@ seurat_object <- subset(
 counts <- seurat_object@assays$RNA@counts
 
 # Protein coding genes only
-protein_coding_genes <- read.csv(params$path_to_protein_coding_genes)
+protein_coding_genes <- read.csv(params$protein_coding_genes_list_path)
 counts <- counts[rownames(counts) %in% protein_coding_genes$hgnc_symbol, ]
 
 metadata <- seurat_object[[]]
@@ -115,13 +118,13 @@ deseq <- deseq[keep, ]
 
 genes_used <- rownames(deseq)
 genes_used <- data.frame(gene = genes_used)
-write.csv(genes_used, file.path(params$output_dir, "genes_used.csv"))
+write.csv(genes_used, file.path(params$output_dir, "Fig1f_genes_used.csv"))
 
 # Run DE analysis
 deseq <- DESeq(deseq)
 
 pdf(
-    file = file.path(params$plot_dir, "deseq_disp_ests.pdf"),
+    file = file.path(params$plot_dir, "Fig1f_deseq_disp_ests.pdf"),
     width = 10,
     height = 10
 )
@@ -142,7 +145,7 @@ res_tbl <- res %>%
 de_results <- as.data.frame(res_tbl)
 
 # export results for Fig1g script
-write.csv(de_results, file.path(params$output_dir, "de_results.csv"))
+write.csv(de_results, file.path(params$output_dir, "Fig1f_de_results.csv"))
 
 # Thresholds
 fc <- log2(1.5)
@@ -159,7 +162,7 @@ de_results$diffexpressed[
 rownames(de_results) <- de_results$gene
 
 # Label genes
-gene_lists <- readxl::read_excel(params$path_to_genelists, skip = 1)
+gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
 
 # Venkataramani 2022
 up <- gene_lists %>%
@@ -278,4 +281,10 @@ p <- ggplot(df, aes(x = log2FoldChange, y = -log10(padj))) +
     xlim(c(-3, 3)) +
     xlab(bquote(~ Log[2] ~ FoldChange)) +
     ylab(bquote(~ -Log[10] ~ italic(FDR)))
-ggsave(filename = "Fig1f.pdf", path = params$plot_dir, height = 10, width = 7)
+ggsave(
+    plot = p,
+    filename = "Fig1f_volcano.pdf",
+    path = params$plot_dir,
+    height = 10,
+    width = 7
+)

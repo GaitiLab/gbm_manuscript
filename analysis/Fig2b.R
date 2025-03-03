@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure 1f ---- #
+# ---- Code to reproduce Figure 2b ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -7,9 +7,12 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
+# ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(dplyr, ggplot2, ggrepel)
 
-# Required input:
+# Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
     interactions_path = "misc/SuppTables/Table S4.xlsx"
@@ -40,7 +43,7 @@ interactions$pathway_label <- ifelse(
 )
 
 # ---- Create figure ---- #
-ggplot(interactions, aes(x = rank, y = n)) +
+p <- ggplot(interactions, aes(x = rank, y = n)) +
     geom_point(color = "black", stroke = 1, shape = 21, size = 2) +
     geom_text_repel(
         aes(label = pathway_label),
@@ -53,4 +56,4 @@ ggplot(interactions, aes(x = rank, y = n)) +
         y = "Number of Interactions Identified Between\n\nGlutamatergic Neuron - Invasive-high OPC/NPC1-like",
         x = "Rank"
     )
-ggsave("Fig2b.pdf", path = params$plot_dir)
+ggsave(plot = p, filename = "Fig2b.pdf", path = params$plot_dir)

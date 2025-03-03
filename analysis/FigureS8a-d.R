@@ -7,6 +7,7 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
+# Load required packages
 pacman::p_load(
     data.table,
     dplyr,
@@ -22,7 +23,7 @@ pacman::p_load(
     stringr
 )
 
-# Enter paths here
+# Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
     path_to_amethys_obj = "path_to_amethyst_obj"

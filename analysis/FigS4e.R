@@ -7,16 +7,37 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
-# Load packages
+# ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(
-  Seurat, data.table, tidyverse, stringr, ggplot2, ggpubr,
-  argparse, ggExtra, patchwork, ggrepel, cowplot, Signac, varhandle, log4r,
-  scales, dplyr, stats, RColorBrewer, GBMutils, circlize, ComplexHeatmap
+    Seurat,
+    data.table,
+    tidyverse,
+    stringr,
+    ggplot2,
+    ggpubr,
+    argparse,
+    ggExtra,
+    patchwork,
+    ggrepel,
+    cowplot,
+    Signac,
+    varhandle,
+    log4r,
+    scales,
+    dplyr,
+    stats,
+    RColorBrewer,
+    GBMutils,
+    circlize,
+    ComplexHeatmap
 )
 
+# Required inputs
 params <- list(
     seurat_obj_path = "",
-    path_to_de_genes_table = "misc/SuppTables/Table S3.xlsx",
+    degs_table_path = "misc/SuppTables/Table S3.xlsx",
     plot_dir = "output/submission/figures"
 )
 
@@ -28,7 +49,7 @@ DefaultAssay(curr_seurat_data) <- "RNA"
 
 # Invasive signature
 degs <- readxl::read_excel(
-    params$path_to_de_genes_table,
+    params$degs_table_path,
     sheet = "DEGs",
     skip = 1
 ) %>%
@@ -105,7 +126,7 @@ p <- ggscatter(
     geom_point(aes(color = Region)) +
     scale_color_manual(values = color_palette)
 ggsave(
-    p,
+    plot = p,
     filename = "FigS4e_invasivity_invasive_score_correlation_malignant.pdf",
     width = 12,
     height = 12,

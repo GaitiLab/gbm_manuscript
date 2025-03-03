@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure 2de ---- #
+# ---- Code to reproduce Figure 2e, S5h, i ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -7,6 +7,7 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
+# ---- Setup script ---- #
 
 pacman::p_load(
     GaitiLabUtils,
@@ -22,28 +23,23 @@ pacman::p_load(
 )
 logr <- init_logging()
 
-
+# Required inputs
 params <- list(
-    sample_id = "6425",
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
     k_neighbors = 30,
-    pseudobulk_scores_path = glue(
-        "misc/internal/visiumhd_6425_combined_pseudobulk_scores_k30.rds"
-    ),
     n_iter = 10000, # original
     lower_limit = 0.10,
     upper_limit = 0.90,
     seurat_obj_6425_A_path = "data/visiumhd/processed/6425_A/6425_A.rds",
     seurat_obj_6425_B_path = "data/visiumhd/processed/6425_B/6425_B.rds",
-    degs_path = "misc/SuppTables/Table S3.xlsx",
+    degs_table_path = "misc/SuppTables/Table S3.xlsx",
     genelists_path = "misc/SuppTables/Table S2.xlsx",
     n_cores = 4
 )
 
-
 GaitiLabUtils::create_dir(params$plot_dir)
-GaitiLabUtils::create_dir(params$plot_dir)
+GaitiLabUtils::create_dir(params$output_dir)
 
 # ---- Setup ---- #
 malignant_signatures <- c(
@@ -81,7 +77,7 @@ distance_labels <- setNames(
 
 # Load DEGs to extract invasive signature up
 degs <- readxl::read_excel(
-    params$degs_path,
+    params$params$degs_table_path,
     sheet = "DEGs",
     skip = 1
 ) %>%

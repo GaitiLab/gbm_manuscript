@@ -9,7 +9,7 @@ GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
 
-# Load libraries
+# Load required packages
 pacman::p_load(dplyr, ComplexHeatmap, RColorBrewer, tidyr, circlize)
 
 # Helper function for drawing Heatmaps
@@ -23,13 +23,13 @@ cell_border_fun <- function(j, i, x, y, width, height, fill) {
     )
 }
 
-# Required input:
+# Required inputs
 params <- list(
-    output_dir = "output/submission/figures",
+    plot_dir = "output/submission/figures",
     input_table_path = "misc/SuppTables/Table S1.xlsx"
 )
 
-GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
 
 # ---- Load data & Data wrangling ---- #
 mutations_oi <- c("IDH", "CDKN2A", "TP53", "ATRX", "BRAF")
@@ -144,7 +144,7 @@ ht2 <- Heatmap(
 heatmap <- ht1 %v% ht2
 
 pdf(
-    file = file.path(params$output_dir, "Fig1a.pdf"),
+    file = file.path(params$plot_dir, "Fig1a.pdf"),
     width = 10,
     height = 10
 )

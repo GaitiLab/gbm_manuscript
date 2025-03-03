@@ -28,8 +28,8 @@ params <- list(
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
     fgseares_c2_cp_path = "fgseaRes_c2_cp.csv",
-    path_to_de_genes_table = "misc/SuppTables/Table S3.xlsx",
-    path_to_genelists = "misc/SuppTables/Table S2.xlsx",
+    degs_table_path = "misc/SuppTables/Table S3.xlsx",
+    genelists_path = "misc/SuppTables/Table S2.xlsx",
     gbmap_core_obj_path = "gbmap_core.rds"
 )
 
@@ -39,6 +39,8 @@ GaitiLabUtils::create_dir(params$plot_dir)
 # ---------------------------------------------------------------------------- #
 #                                  Figure S4a                                  #
 # ---------------------------------------------------------------------------- #
+
+# TODO @Bensonwu02 is this SuppTable S3 'C2_CP pathways?'
 res <- read.csv(params$fgseares_c2_cp_path)
 
 pathways <- c(
@@ -266,7 +268,7 @@ dev.off()
 #                                  Figure S4c                                  #
 # ---------------------------------------------------------------------------- #
 degs <- readxl::read_excel(
-    params$path_to_de_genes_table,
+    params$degs_table_path,
     sheet = "DEGs",
     skip = 1
 ) %>%
@@ -274,7 +276,7 @@ degs <- readxl::read_excel(
 degs_up <- degs %>%
     filter(Direction == "Upregulated in PT OPC/NPC1-like cells")
 
-gene_lists <- readxl::read_excel(params$path_to_genelists, skip = 1)
+gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
 
 neftel_gene_list <- lapply(
     gene_lists %>% dplyr::select(starts_with("Neftel_")) %>% as.list(),
@@ -318,9 +320,9 @@ dev.off()
 # ---------------------------------------------------------------------------- #
 #                                  Figure S4f                                  #
 # ---------------------------------------------------------------------------- #
-
+# TODO @Bensonwu02 can the commented code be removed; assuming the change was okay?
 degs <- readxl::read_excel(
-    params$path_to_de_genes_table,
+    params$degs_table_path,
     sheet = "DEGs",
     skip = 1
 ) %>%

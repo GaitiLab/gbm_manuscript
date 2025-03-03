@@ -8,6 +8,8 @@ pacman::p_unload()
 GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(
     GaitiLabUtils,
     GBMutils,
@@ -23,6 +25,7 @@ pacman::p_load(
 
 logr <- GaitiLabUtils::init_logging()
 
+# Required inputs
 params <- list(
     # path pointing to the parent directory with sample directories (masks + seurat obj)
     input_dir = "data/visiumhd/processed",
@@ -38,7 +41,6 @@ sample_ids <- c(
 )
 
 palette_L1 <- GBMutils::load_color_palette("Spatial_CellClass_L1")
-
 
 current_sample_params <- list()
 for (current_sample_id in sample_ids) {

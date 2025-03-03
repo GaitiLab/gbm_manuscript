@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure 1a ---- #
+# ---- Code to reproduce Figure 4c, S7e ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))

@@ -7,21 +7,24 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
-# GSEA for DEGs
+# ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(data.table, ggplot2, stringr, dplyr, fgsea)
 
-# Required input:
+# Required inputs
 params <- list(
     output_dir = "output/submission",
-    path_to_de_genes_table = "misc/SuppTables/Table S3.xlsx",
-    path_to_c5_gmt_file = "misc/internal/c5.go.v2023.2.Hs.symbols.gmt"
+    degs_table_path = "misc/SuppTables/Table S3.xlsx",
+    c5_gmt_path = "misc/internal/c5.go.v2023.2.Hs.symbols.gmt",
+    de_results_path = file.path(params$output_dir, "Fig1f_de_results.csv") # from Fig1f
 )
 
 # Creating directories needed for outputs
 GaitiLabUtils::create_dir(params$output_dir)
 
 # ---- Load data & data wrangling ---- #
-curr_gene_list <- file.path(params$output_dir, "de_results.csv") # from Fig1f
+curr_gene_list <- read.csv(params$de_results_path) # from Fig1f
 
 rownames(curr_gene_list) <- curr_gene_list$gene
 
@@ -38,7 +41,7 @@ ranked_genes_response$ranking <- rank(
 
 write.csv(
     ranked_genes_response,
-    file.path(params$output_dir, "ranked_genes_response.csv")
+    file.path(params$output_dir, "Fig1g_ranked_genes_response.csv")
 )
 response_level_stats <- ranked_genes_response$rank
 names(response_level_stats) <- rownames(ranked_genes_response)
@@ -46,7 +49,7 @@ names(response_level_stats) <- rownames(ranked_genes_response)
 # ---- Perform GSEA ---- #
 
 # Load C5 GO genes
-gene_set <- gmtPathways(params$path_to_c5_gmt_file)
+gene_set <- gmtPathways(params$c5_gmt_path)
 
 # Run gsea and filter the pathways with a p-val less than 0.05
 fgseaRes_ctrl_multilevel <- fgseaMultilevel(

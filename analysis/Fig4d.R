@@ -12,7 +12,7 @@ GaitiLabUtils::set_wd()
 # Load libraries
 pacman::p_load(data.table, tidyverse, ggplot2, ggrepel)
 
-# Required inputs:
+# Required inputs
 params <- list(
     # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
     motif_results_dir = "/homer_motif/Top1000",

@@ -7,6 +7,8 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
+# ---- Setup script ---- #
+
 # Load need packages
 pacman::p_load(
     GaitiLabUtils,
@@ -21,6 +23,7 @@ pacman::p_load(
 )
 logr <- GaitiLabUtils::init_logging()
 
+# Required inputs
 params <- list(
     segmentation_masks_path = "data/visiumhd/processed/6425_A/6425_A__masks.json",
     seurat_obj_path = "data/visiumhd/processed/6425_A/6425_A.rds",

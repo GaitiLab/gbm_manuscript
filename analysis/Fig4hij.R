@@ -1,9 +1,15 @@
-# Code to reproduce Figures 4h,i,j
+# ---- Code to reproduce Figure 4h,i,j ---- #
 
-if (!("pacman" %in% rownames(installed.packages()))) {
-    install.packages("pacman")
-}
+# Unload all previously loaded packages + remove previous environment
+rm(list = ls(all = TRUE))
+pacman::p_unload()
 
+# Set working directory
+GaitiLabUtils::set_wd()
+
+# ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(
     data.table,
     ggplot2,
@@ -27,14 +33,17 @@ pacman::p_load(
     ggrepel
 )
 
-# Enter paths here
-output_dir <- ""
+# Required inputs
+params <- list(
+    output_dir = "output/submission",
+    plot_dir = "output/submission/figures",
+    amethyst_obj_path = "path_to_amethyst_obj",
+    c2_gmt_path = "c2.all.v2023.1.Hs.symbols.gmt",
+    genelists_path = "misc/SuppTables/Table S2.xlsx"
+)
 
-# Creating directories needed for outputs
-if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
-
-plot_dir <- paste0(output_dir, "/path_to_output_directory")
-if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
+GaitiLabUtils::create_dir(params$output_dir)
+GaitiLabUtils::create_dir(params$plot_dir)
 
 set.seed(123)
 
@@ -169,7 +178,7 @@ findGeneMarkers <- function(
 # ---------------------------------------------------------------------------- #
 #                                   Figure 4h                                  #
 # ---------------------------------------------------------------------------- #
-amethyst_obj <- readRDS("path_to_amethyst_obj")
+amethyst_obj <- readRDS(params$amethyst_obj_path)
 amethyst_obj <- subsetObject(
     amethyst_obj,
     rownames(amethyst_obj@metadata)[
@@ -193,8 +202,12 @@ amethyst_obj@metadata$cluster_id <- amethyst_obj@metadata$Region
 print(table(amethyst_obj@metadata$Region))
 print(table(amethyst_obj@metadata$CNV))
 
-saveRDS(amethyst_obj, file.path(obj_dir, "combined_obj_new.rds"))
-amethyst_obj <- readRDS(file.path(obj_dir, "combined_obj_current.rds"))
+saveRDS(amethyst_obj, file.path(params$output_dir, "combined_obj_new.rds"))
+
+amethyst_obj <- readRDS(file.path(
+    params$output_dir,
+    "combined_obj_current.rds"
+))
 
 
 amethyst_obj@metadata$cluster_id <- amethyst_obj@metadata$Region
@@ -207,7 +220,10 @@ markers <- findGeneMarkers(
     method = "wilcox",
     filter_cov = FALSE
 )
-write.csv(markers, file.path(base_plot_dir, "pt_te_dmr_gene_promoter_cg.csv"))
+write.csv(
+    markers,
+    file.path(params$output_dir, "pt_te_dmr_gene_promoter_cg.csv")
+)
 
 ## GSEA
 curr_markers <- markers %>%
@@ -221,7 +237,7 @@ ranked_gene_list <- curr_markers$rank
 names(ranked_gene_list) <- curr_markers$gene
 
 # load msigdb geneset
-c2 <- gmtPathways("c2.all.v2023.1.Hs.symbols.gmt")
+c2 <- gmtPathways(params$c2_gmt_path)
 
 gsea_results <- fgsea::fgseaMultilevel(
     pathways = c2,
@@ -236,7 +252,7 @@ df <- df[!grepl("leadingEdge", colnames(gsea_results))] %>%
 write.csv(
     df,
     file.path(
-        base_plot_dir,
+        params$output_dir,
         paste0("fgseaRes_", pathway_set, "_gene_promoter_cg_pt_vs_te.csv")
     )
 )
@@ -246,27 +262,42 @@ markers <- markers %>%
     filter(grouping_var == "PT") %>%
     mutate(fdr = p.adjust(p.val, "BH"))
 
-pathway_gobert <- gmt_import(
-    "GOBERT_OLIGODENDROCYTE_DIFFERENTIATION_UP.v2023.2.Hs.gmt"
-)
-pathway_kim <- gmt_import(
-    "KIM_ALL_DISORDERS_OLIGODENDROCYTE_NUMBER_CORR_UP.v2024.1.Hs.gmt"
-)
-pathway_neuro <- gmt_import(
-    "KEGG_NEUROACTIVE_LIGAND_RECEPTOR_INTERACTION.v2024.1.Hs.gmt"
-)
+# TODO replace with SuppTable use
+gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
+
+
+# TODO @Bensonwu02 i think this can be removed, pulling the genelists below
+# pathway_gobert <- gmt_import(
+#     "GOBERT_OLIGODENDROCYTE_DIFFERENTIATION_UP.v2023.2.Hs.gmt"
+# )
+# pathway_kim <- gmt_import(
+#     "KIM_ALL_DISORDERS_OLIGODENDROCYTE_NUMBER_CORR_UP.v2024.1.Hs.gmt"
+# )
+# pathway_neuro <- gmt_import(
+#     "KEGG_NEUROACTIVE_LIGAND_RECEPTOR_INTERACTION.v2024.1.Hs.gmt"
+# )
+pathway_gobert <- gene_lists %>%
+    filter(!is.na(Gobert_Oligodendrocyte_Differentiation_Up)) %>%
+    pull(Gobert_Oligodendrocyte_Differentiation_Up)
+pathway_kim <- (gene_lists %>%
+    filter(!is.na(Kim_All_Disorders_Oligodendrocyte_Abundance_Up)) %>%
+    pull(Kim_All_Disorders_Oligodendrocyte_Abundance_Up))
+pathway_neuro <- gene_lists %>%
+    filter(!is.na(KEGG_Neuroactive_Ligands_and_Receptors)) %>%
+    pull(KEGG_Neuroactive_Ligands_and_Receptors)
+
 sig_dn <- cluster_markers %>% filter(Delta < -2.5 & p.val < 0.05)
 sig_up <- cluster_markers %>% filter(Delta > 2.5 & p.val < 0.05)
 
 sig_genes_dn <- intersect(
     c(
-        pathway_gobert[["GOBERT_OLIGODENDROCYTE_DIFFERENTIATION_UP"]],
-        pathway_kim[["KIM_ALL_DISORDERS_OLIGODENDROCYTE_NUMBER_CORR_UP"]]
+        pathway_gobert,
+        pathway_kim
     ),
     sig_dn$gene
 )
 sig_genes_up <- intersect(
-    pathway_neuro[["KEGG_NEUROACTIVE_LIGAND_RECEPTOR_INTERACTION"]],
+    pathway_neuro,
     sig_up$gene
 )
 sig_genes <- c(sig_genes_dn, sig_genes_up)
@@ -295,18 +326,18 @@ cluster_markers$label <- ifelse(
 cluster_markers$colour <- case_when(
     cluster_markers$gene %in%
         sig_genes &
-        cluster_markers$gene %in%
-            pathway_gobert[["GOBERT_OLIGODENDROCYTE_DIFFERENTIATION_UP"]] ~
+        # TODO @Bensonwu02 please check
+        cluster_markers$gene %in% pathway_gobert ~
         "gobert",
     cluster_markers$gene %in%
         sig_genes &
         cluster_markers$gene %in%
-            pathway_kim[["KIM_ALL_DISORDERS_OLIGODENDROCYTE_NUMBER_CORR_UP"]] ~
+            pathway_kim ~
         "kim",
     cluster_markers$gene %in%
         sig_genes &
         cluster_markers$gene %in%
-            pathway_neuro[["KEGG_NEUROACTIVE_LIGAND_RECEPTOR_INTERACTION"]] ~
+            pathway_neuro ~
         "neuroactive",
     TRUE ~ "black"
 )
@@ -336,8 +367,9 @@ p <- ggplot(cluster_markers, aes(x = Delta, y = -log10(p.val))) +
     ylim(c(0, 6)) +
     xlim(c(-10, 10))
 ggsave(
-    filename = "pt_vs_te_volcano.pdf",
-    path = plot_dir,
+    plot = p,
+    filename = "Fig4h_pt_vs_te_volcano.pdf",
+    path = params$plot_dir,
     width = 6,
     height = 8
 )
@@ -346,7 +378,7 @@ ggsave(
 #                                   Figure 4i                                  #
 # ---------------------------------------------------------------------------- #
 pd <- fgsea::plotEnrichmentData(
-    pathway = pathway_kim[["KIM_ALL_DISORDERS_OLIGODENDROCYTE_NUMBER_CORR_UP"]],
+    pathway = pathway_kim,
     stats = ranked_gene_list
 )
 with(
@@ -394,13 +426,13 @@ with(
         labs(x = "Rank in Ordered Dataset", y = "Enrichment score (ES)")
 ) +
     ggtitle(paste("PT vs Tumour GBM cells \n Oligodendrocyte Abundance Up"))
-ggsave(filename = "oligo_abundance_gsea.pdf", path = plot_dir)
+ggsave(filename = "Fig4i_oligo_abundance_gsea.pdf", path = params$plot_dir)
 
 # ---------------------------------------------------------------------------- #
 #                                   Figure 4j                                  #
 # ---------------------------------------------------------------------------- #
 pd <- fgsea::plotEnrichmentData(
-    pathway = pathway_neuro[["KEGG_NEUROACTIVE_LIGAND_RECEPTOR_INTERACTION"]],
+    pathway = pathway_neuro,
     stats = ranked_gene_list
 )
 with(
@@ -458,4 +490,4 @@ with(
     ggtitle(paste(
         "PT vs Tumour GBM cells \n Neuroactive Ligand and Receptor Interaction"
     ))
-ggsave(filename = "neuroactive_gsea.pdf", path = plot_dir)
+ggsave(filename = "Fig4j_neuroactive_gsea.pdf", path = params$plot_dir)
