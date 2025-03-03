@@ -20,7 +20,7 @@ pacman::p_load(
     ggrepel,
     mitch,
     fgsea,
-    readr, 
+    readr,
     msigdbr,
     escape,
     dittoSeq,
@@ -33,6 +33,8 @@ pacman::p_load(
 )
 
 params <- list(
+    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
+
     input = "/multiome_results/10_ArchR",
     archr_threads = 8,
     genome_version = "hg38",

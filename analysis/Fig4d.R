@@ -1,5 +1,28 @@
+# ---- Code to reproduce Figure 4d ---- #
+
+# Unload all previously loaded packages + remove previous environment
+rm(list = ls(all = TRUE))
+pacman::p_unload()
+
+# Set working directory
+GaitiLabUtils::set_wd()
+
+# ---- Setup script ---- #
+
+# Load libraries
+pacman::p_load(data.table, tidyverse, ggplot2, ggrepel)
+
+# Required inputs:
+params <- list(
+    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
+    motif_results_dir = "/homer_motif/Top1000",
+    plot_dir = "output/submission/figures"
+)
+
+GaitiLabUtils::create_dir(params$plot_dir)
+
 motif_results_paths <- list.files(
-    paste0(args$output_dir, "/homer_motif/Top1000"),
+    params$motif_results_dir,
     pattern = "knownResults.txt",
     full.names = TRUE,
     recursive = TRUE
@@ -121,7 +144,7 @@ diff_motif_results <- merge(
     mutate(p_value = ifelse(cell_type_pct_diff > 0, p_value_OPC, p_value_COP))
 
 # Plotting the data
-ggplot(diff_motif_results, aes(x = rank, y = cell_type_pct_diff)) +
+p <- ggplot(diff_motif_results, aes(x = rank, y = cell_type_pct_diff)) +
     geom_point(
         aes(
             fill = significant_status,
@@ -194,8 +217,9 @@ ggplot(diff_motif_results, aes(x = rank, y = cell_type_pct_diff)) +
         panel.border = element_blank(),
         axis.line = element_line()
     )
-ggsave(
-    paste0(plot_dir, "/Differential_motif_enrichment_OPC_vs_COP.pdf"),
+p <- ggsave(
+    path = params$plot_dir,
+    filename = "Differential_motif_enrichment_OPC_vs_COP.pdf",
     width = 7,
     height = 4,
     dpi = 300
