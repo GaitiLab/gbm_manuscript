@@ -20,7 +20,7 @@ pacman::p_load(
     ggrepel,
     mitch,
     fgsea,
-    readr, 
+    readr,
     msigdbr,
     escape,
     dittoSeq,
@@ -221,7 +221,7 @@ marker_list$dalabel[
 ] <- marker_list$name[marker_list$diffaccessible != "Not significant"]
 
 # Overlay the volcano plot with the NOTCH signaling pathway genes
-# TODO @Yiyan-YW this is missing in your list of params at start
+all_gene_sets <- msigdbr(species = "Homo sapiens")
 NOTCH <- all_gene_sets %>%
     filter(gs_name %in% c("WP_NOTCH_SIGNALING")) %>%
     pull(gene_symbol)
