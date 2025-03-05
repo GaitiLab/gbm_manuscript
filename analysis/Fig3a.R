@@ -34,15 +34,14 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
 
     plot_dir = "output/submission/figures",
     # Gene level
-    gene_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_auc_activator_mtx.csv",
-    gene_TFs_to_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_TFs_to_label.csv",
+    gene_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_auc_activator_mtx.csv", # SCENIC+ results
+    gene_TFs_to_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_TFs_to_label.csv", # Information in Table S2
     # Region level
-    region_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv",
-    region_TFs_to_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_TFs_to_label.csv",
+    region_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv", # SCENIC+ results
+    region_TFs_to_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_TFs_to_label.csv", # Information in Table S2
 
     # Heatmap data rna and atac
     heatmap_data_rna_path = "multiome_results/12_SCENIC_plus/outs/RNA_heatmap.csv",

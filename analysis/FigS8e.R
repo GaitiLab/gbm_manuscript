@@ -34,9 +34,7 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
-
-    input = "/multiome_results/10_ArchR",
+    input = "/multiome_results/10_ArchR", # ArchR project directory - figure can be reproduced using results from table S2
     archr_threads = 8,
     genome_version = "hg38",
     celltype_column = "CellClass_L5_2",

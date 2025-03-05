@@ -14,16 +14,15 @@ pacman::p_load(data.table, tidyverse, ggplot2, ggrepel)
 
 # Required inputs
 params <- list(
-    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
-    motif_results_dir = "/homer_motif/Top1000",
+    motif_results_dir = "misc/data/homer_motif",
     plot_dir = "output/submission/figures"
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)
 
 motif_results_paths <- list.files(
-    params$motif_results_dir,
-    pattern = "knownResults.txt",
+    path = params$motif_results_dir,
+    pattern = "*.txt",
     full.names = TRUE,
     recursive = TRUE
 )

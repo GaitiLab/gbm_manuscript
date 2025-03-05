@@ -33,39 +33,14 @@ pacman::p_load(
     GBMutils,
     ggh4x
 )
-# TODO @Yiyan-YW pleaes convert to params <- list() + add comments on whether we provide the input or they have to generate it themselves
-parser <- ArgumentParser(
-    description = "Pipeline for running ArchR Motif Enrichment."
-)
 
-parser$add_argument(
-    "-i",
-    "--input",
-    type = "character",
-    default = "multiome_results/10_ArchR",
-    help = "Input directory containing Arrow files."
+# Required inputs
+params <- list(
+    input = "multiome_results/10_ArchR",
+    background_peaks = "per_patient", # Calculate with per patient or all cells sum up - to reproduce the results in the paper, use "per_patient"
+    plot_dir = "10_ArchR/Plots",
+    expression_matrix = "multiome_results/TF_exp_mtx.csv" # Subset expression matrix for TFs
 )
-
-parser$add_argument(
-    "--background_peaks",
-    default = "per_patient",
-    type = "character",
-    help = "Compute motif deviations with background peaks samples from all cells or at per patient level. Options include: all_cells, per_patient."
-)
-
-parser$add_argument(
-    "--plot_dir",
-    default = "10_ArchR/Plots",
-    type = "character",
-    help = "Output directory for plots."
-)
-parser$add_argument(
-    "--expression_matrix",
-    default = "multiome_results/TF_exp_mtx_top_up.csv",
-    type = "character",
-    help = "Expression matrix."
-)
-params <- parser$parse_args()
 
 params$output_dir <- params$input
 plot_dir <- params$plot_dir

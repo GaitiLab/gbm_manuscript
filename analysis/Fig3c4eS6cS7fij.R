@@ -19,60 +19,24 @@ pacman::p_load(
 )
 # Required inputs
 
-# TODO @Yiyan-YW please convert to a params <- list()
-parser <- ArgumentParser(
-    description = "Pipeline for SCENIC+ in silico perturbation simulation visualization."
+params <- list(
+    input = "multiome_results/12_SCENIC_plus/outs", # SCENIC+ in silico perturbation results
+    output_dir = "multiome_results/12_SCENIC_plus/outs",
+    merged_obj = "", # Seurat object with original data
+    include_regions = "all_regions",
+    DE_genes = "inv_sig.csv", # invasive signature genes from Table S2
+    TF_to_perturb = "ZEB1"
 )
-
-parser$add_argument(
-    "-i",
-    "--input",
-    type = "character",
-    default = "multiome_results/12_SCENIC_plus/outs",
-    help = "Input directory containing the eRegulon results."
-)
-parser$add_argument(
-    "-o",
-    "--output_dir",
-    type = "character",
-    default = "multiome_results/12_SCENIC_plus/outs",
-    help = "Output directory to save results."
-)
-parser$add_argument(
-    "--merged_obj",
-    type = "character",
-    default = "gbm_regional_study.rds",
-    help = "Merged Seurat object."
-)
-parser$add_argument(
-    "--include_regions",
-    type = "character",
-    default = "all_regions",
-    help = "Regions to include in the analysis."
-)
-parser$add_argument(
-    "--DE_genes",
-    type = "character",
-    default = "inv_sig.csv",
-    help = "Differentially expressed genes."
-)
-parser$add_argument(
-    "--TF_to_perturb",
-    type = "character",
-    default = "ZEB1",
-    help = "Transcription factor to perturb."
-)
-args <- parser$parse_args()
 
 perturbation_dir <- paste0(
-    args$output_dir,
+    params$output_dir,
     "/perturbation_simulation/",
-    args$include_regions
+    params$include_regions
 )
 curr_seurat_obj <- readRDS(paste0(
     perturbation_dir,
     "/curr_seurat_obj_",
-    args$TF_to_perturb,
+    params$TF_to_perturb,
     ".rds"
 ))
 
@@ -392,14 +356,14 @@ plot_invasion_difference <- function(
 # Plot invasion probabilities per sample
 plot_invasion_probabilities_per_sample(
     curr_seurat_obj = curr_seurat_obj,
-    TF_to_perturb = args$TF_to_perturb,
+    TF_to_perturb = params$TF_to_perturb,
     perturbation_dir = perturbation_dir,
     annotation_column = "CCI_CellClass_L2_2"
 )
 
 plot_invasion_difference(
     curr_seurat_obj = curr_seurat_obj,
-    TF_to_perturb = args$TF_to_perturb,
+    TF_to_perturb = params$TF_to_perturb,
     perturbation_dir = perturbation_dir,
     annotation_column = "CCI_CellClass_L2_2"
 )
@@ -695,14 +659,14 @@ plot_transition_difference <- function(
 # Plot transition probabilities per sample
 plot_transition_probabilities_per_sample(
     curr_seurat_obj = curr_seurat_obj,
-    TF_to_perturb = args$TF_to_perturb,
+    TF_to_perturb = params$TF_to_perturb,
     perturbation_dir = perturbation_dir,
     annotation_column = "CCI_CellClass_L2_2"
 )
 
 plot_transition_difference(
     curr_seurat_obj = curr_seurat_obj,
-    TF_to_perturb = args$TF_to_perturb,
+    TF_to_perturb = params$TF_to_perturb,
     perturbation_dir = perturbation_dir,
     annotation_column = "CCI_CellClass_L2_2"
 )
@@ -926,7 +890,7 @@ plot_signature_change_probabilities_per_sample <- function(
 # Plot signature change probabilities per sample
 plot_signature_change_probabilities_per_sample(
     curr_seurat_obj = curr_seurat_obj,
-    TF_to_perturb = args$TF_to_perturb,
+    TF_to_perturb = params$TF_to_perturb,
     perturbation_dir = perturbation_dir,
     signature = "synaptic_signaling",
     annotation_column = "CCI_CellClass_L2_2"
@@ -934,7 +898,7 @@ plot_signature_change_probabilities_per_sample(
 
 plot_signature_change_probabilities_per_sample(
     curr_seurat_obj = curr_seurat_obj,
-    TF_to_perturb = args$TF_to_perturb,
+    TF_to_perturb = params$TF_to_perturb,
     perturbation_dir = perturbation_dir,
     signature = "synapse",
     annotation_column = "CCI_CellClass_L2_2"

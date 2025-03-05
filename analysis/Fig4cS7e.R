@@ -13,9 +13,8 @@ pacman::p_load(igraph, readr, data.table, tidyverse, eulerr)
 
 # Required inputs
 params <- list(
-    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
-    lineage_genes_path = "misc/data/Marker_genes.csv",
-    TFs_to_plot_path = "multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv",
+    lineage_genes_path = "misc/data/Marker_genes.csv", # Braun_Mannens_OPC_associated_TFs shared in gene lists used for this publication
+    TFs_to_plot_path = "multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv", # Results shared in Table S2
     plot_dir = "output/submission/figures",
     eregulons_path = "eRegulons_simplified.csv",
     scenicplus_activator_gene_list_path = "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/df/SCENICplus_activator_gene_list.csv",
@@ -45,7 +44,6 @@ lineage_gene_list <- lapply(
 
 output_file <- file.path(params$plot_dir, "Figc_venn_lineage.pdf")
 pdf(output_file, width = 5, height = 5)
-# TODO @Yiyan-YW are you using the eulerr package for this? (see pacman::p_load())
 plot(euler(lineage_gene_list, shape = "ellipse"), quantities = TRUE)
 dev.off()
 
