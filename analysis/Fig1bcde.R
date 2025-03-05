@@ -9,7 +9,7 @@ GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
 
-# Load needed libraries
+# Load required packages
 pacman::p_load(
     data.table,
     ggplot2,
@@ -26,8 +26,9 @@ pacman::p_load(
     GaitiLabUtils
 )
 
-# Required input:
+# Required inputs
 params <- list(
+    # Path to Seurat object generated using this manuscript's data
     path_to_seurat_object = "",
     plot_dir = "output/submission/figures",
     scvi_latent_rep_path = "snrnaseq_umap_coords.csv"
@@ -162,6 +163,7 @@ p <- ggplot(df, aes(x = Sample, y = n, fill = factor(CellClass_L0))) +
         legend.title = element_blank()
     )
 ggsave(
+    p,
     filename = "Fig1c.pdf",
     path = params$plot_dir,
     height = 25,
@@ -185,7 +187,7 @@ m <- all_metadata %>%
     pivot_wider(names_from = "Region", values_from = "mean_percent")
 m$CellClass_L3 <- factor(m$CellClass_L3, levels = m$CellClass_L3)
 
-ggplot(m, aes(x = PT, y = Tumor)) +
+p <- ggplot(m, aes(x = PT, y = Tumor)) +
     geom_point(
         aes(fill = CellClass_L3),
         stroke = 1,
@@ -205,6 +207,7 @@ ggplot(m, aes(x = PT, y = Tumor)) +
         legend.position = "right"
     )
 ggsave(
+    p,
     filename = "Fig1d.pdf",
     path = params$plot_dir,
     height = 6,
@@ -224,7 +227,7 @@ nm <- all_metadata %>%
 
 nm$CellClass_L1 <- factor(nm$CellClass_L1, levels = nm$CellClass_L1)
 
-ggplot(nm, aes(x = PT, y = Tumor)) +
+p <- ggplot(nm, aes(x = PT, y = Tumor)) +
     geom_point(
         aes(fill = CellClass_L1),
         stroke = 1,
@@ -243,7 +246,8 @@ ggplot(nm, aes(x = PT, y = Tumor)) +
         legend.direction = "vertical",
         legend.position = "right"
     )
-ggsave(
+p <- ggsave(
+    p,
     filename = "Fig1e.pdf",
     path = params$plot_dir,
     height = 6,

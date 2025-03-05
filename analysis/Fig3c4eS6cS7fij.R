@@ -17,7 +17,9 @@ pacman::p_load(
     GaitiLabUtils,
     GBMutils
 )
+# Required inputs
 
+# TODO @Yiyan-YW please convert to a params <- list()
 parser <- ArgumentParser(
     description = "Pipeline for SCENIC+ in silico perturbation simulation visualization."
 )
@@ -204,13 +206,15 @@ plot_invasion_probabilities_per_sample <- function(
         )
     write.csv(
         summary_data,
-        paste0(
+        file.path(
             perturbation_dir,
-            "/change_in_inv_per_sample_mean_",
-            TF_to_perturb,
-            "_",
-            annotation_column,
-            ".csv"
+            paste0(
+                "change_in_inv_per_sample_mean_",
+                TF_to_perturb,
+                "_",
+                annotation_column,
+                ".csv"
+            )
         )
     )
 
@@ -269,15 +273,15 @@ plot_invasion_probabilities_per_sample <- function(
 
     # Save the plot
     ggsave(
-        paste0(
-            perturbation_dir,
-            "/change_in_inv_per_sample_",
+        filename = paste0(
+            "change_in_inv_per_sample_",
             TF_to_perturb,
             "_",
             annotation_column,
             ".pdf"
         ),
         plot = p,
+        path = perturbation_dir,
         width = 1.5 * length(unique(summary_data[[annotation_column]])) + 3,
         height = 4
     )
@@ -373,13 +377,13 @@ plot_invasion_difference <- function(
         GBM_theme()
     ggsave(
         paste0(
-            perturbation_dir,
-            "/invasion_difference_",
+            "invasion_difference_",
             TF_to_perturb,
             "_",
             annotation_column,
             ".pdf"
         ),
+        path = perturbation_dir,
         width = 8,
         height = 0.5 * length(unique(summary_data[[annotation_column]])) + 2
     )
@@ -504,13 +508,15 @@ plot_transition_probabilities_per_sample <- function(
         )
     write.csv(
         summary_data,
-        paste0(
+        file.path(
             perturbation_dir,
-            "/transition_probability_per_sample_mean_",
-            TF_to_perturb,
-            "_",
-            annotation_column,
-            ".csv"
+            paste0(
+                "transition_probability_per_sample_mean_",
+                TF_to_perturb,
+                "_",
+                annotation_column,
+                ".csv"
+            )
         )
     )
 
@@ -569,9 +575,8 @@ plot_transition_probabilities_per_sample <- function(
 
     # Save the plot
     ggsave(
-        paste0(
-            perturbation_dir,
-            "/transition_probability_per_sample_",
+        filename = paste0(
+            "transition_probability_per_sample_",
             TF_to_perturb,
             "_",
             annotation_column,
@@ -579,7 +584,8 @@ plot_transition_probabilities_per_sample <- function(
         ),
         plot = p,
         width = 1.5 * length(unique(summary_data[[annotation_column]])) + 3,
-        height = 4
+        height = 4,
+        path = perturbation_dir
     )
 }
 
@@ -673,15 +679,15 @@ plot_transition_difference <- function(
         ) +
         GBM_theme()
     ggsave(
-        paste0(
-            perturbation_dir,
-            "/transition_difference_",
+        filename = paste0(
+            "transition_difference_",
             TF_to_perturb,
             "_",
             annotation_column,
             ".pdf"
         ),
         width = 8,
+        path = perturbation_dir,
         height = 0.5 * length(unique(summary_data[[annotation_column]])) + 2
     )
 }
@@ -822,15 +828,17 @@ plot_signature_change_probabilities_per_sample <- function(
         )
     write.csv(
         summary_data,
-        paste0(
+        file.path(
             perturbation_dir,
-            "/signature_transition_probability_per_sample_mean_",
-            TF_to_perturb,
-            "_",
-            annotation_column,
-            "_",
-            signature,
-            ".csv"
+            paste0(
+                "signature_transition_probability_per_sample_mean_",
+                TF_to_perturb,
+                "_",
+                annotation_column,
+                "_",
+                signature,
+                ".csv"
+            )
         )
     )
 
@@ -899,9 +907,9 @@ plot_signature_change_probabilities_per_sample <- function(
             axis.title.x = element_blank()
         )
     ggsave(
-        paste0(
-            perturbation_dir,
-            "/signature_transition_probability_per_sample_stacked_",
+        path = perturbation_dir,
+        filename = paste0(
+            "signature_transition_probability_per_sample_stacked_",
             TF_to_perturb,
             "_",
             annotation_column,

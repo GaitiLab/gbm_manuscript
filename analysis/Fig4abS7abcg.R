@@ -24,14 +24,16 @@ pacman::p_load(
 
 region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
 
+# Required inputs
 # Enter paths here
 params <- list(
+    # Path to Seurat object generated using this manuscript's data
     path_to_seurat_object = "",
     plot_dir = "output/submission/figures",
     # Download data from https://github.com/linnarsson-lab/developing-human-brain
     braun_h5ad_path = "developing_opc.h5ad",
     braun_subsampled_h5ad_path = "developing_brain_subsampled.h5ad",
-    path_to_genelists = "misc/SuppTables/Table S2.xlsx"
+    genelists_path = "misc/SuppTables/Table S2.xlsx"
 )
 
 # Creating directories needed for outputs
@@ -73,7 +75,7 @@ dev_brain <- sceasy::convertFormat(
 #                                   Figure 4a                                  #
 # ---------------------------------------------------------------------------- #
 degs <- readxl::read_excel(
-    params$path_to_de_genes_table,
+    params$degs_table_path,
     sheet = "DEGs",
     skip = 1
 ) %>%
@@ -157,6 +159,7 @@ p <- ggplot(plot_df_neuronal, aes(x = CellClass, y = mean_score, group = 1)) +
     GBM_theme() +
     ylim(c(-0.2, 0.35))
 ggsave(
+    plot = p,
     filename = "Fig4a_inv_sig_across_neuronal_lineage_cont.pdf",
     path = params$plot_dir,
     width = 7,
@@ -203,7 +206,7 @@ write.csv(df, file.path(params$output_dir, "diffusion_comps.csv"))
 # ---------------------------------------------------------------------------- #
 
 # Load gene sets
-gene_lists <- readxl::read_excel(params$path_to_genelists, skip = 1)
+gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
 
 neftel_gene_list <- lapply(
     gene_lists %>% dplyr::select(starts_with("Neftel_")) %>% as.list(),
@@ -242,6 +245,7 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = invasive_signature)) +
     ) +
     scale_fill_manual(values = cols)
 ggsave(
+    plot = p,
     filename = "FigS7b_inv_sig_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
@@ -259,6 +263,7 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = DEG3)) +
     ) +
     scale_fill_manual(values = cols)
 ggsave(
+    plot = p,
     filename = "FigS7b_neftel_opc_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
@@ -276,6 +281,7 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = DEG4)) +
     ) +
     scale_fill_manual(values = cols)
 ggsave(
+    plot = p,
     filename = "FigS7c_synapse_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
@@ -293,6 +299,7 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = DEG5)) +
     ) +
     scale_fill_manual(values = cols)
 ggsave(
+    plot = p,
     filename = "FigS7c_synaptic_signaling_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
@@ -309,7 +316,13 @@ p <- DotPlot(
     cols = c("lightgrey", "red3")
 ) +
     theme(axis.text.x = element_text(angle = 90))
-ggsave(filename = "FigS7g.pdf", path = params$plot_dir, height = 6, width = 4)
+ggsave(
+    plot = p,
+    filename = "FigS7g.pdf",
+    path = params$plot_dir,
+    height = 6,
+    width = 4
+)
 
 # ---------------------------------------------------------------------------- #
 #                                   Figure 4b                                  #
@@ -391,8 +404,14 @@ p2 <- ggplot(densities, aes(x = x, y = group)) +
         alpha = "Density"
     )
 
-p / p2 + plot_layout(heights = c(4, 1))
-ggsave(filename = "Fig4b.pdf", path = params$plot_dir, height = 8, width = 9)
+p <- p / p2 + plot_layout(heights = c(4, 1))
+ggsave(
+    plot = p,
+    filename = "Fig4b.pdf",
+    path = params$plot_dir,
+    height = 8,
+    width = 9
+)
 # ---------------------------------------------------------------------------- #
 #                                  Figure S7a                                  #
 # ---------------------------------------------------------------------------- #
@@ -462,7 +481,13 @@ p3 <- ggplot(df, aes(x = DC1, y = DC2)) +
             reverse = FALSE
         )
     )
-p1 /
+p <- p1 /
     p2 /
     p3
-ggsave(filename = "FigS7a.pdf", path = params$plot_dir, height = 15, width = 7)
+ggsave(
+    plot = p,
+    filename = "FigS7a.pdf",
+    path = params$plot_dir,
+    height = 15,
+    width = 7
+)

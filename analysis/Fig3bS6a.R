@@ -7,6 +7,8 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
+# ---- Setup script ---- #
+
 # Load required packages
 pacman::p_load(
     argparse,
@@ -31,7 +33,7 @@ pacman::p_load(
     GBMutils,
     ggh4x
 )
-
+# TODO @Yiyan-YW pleaes convert to params <- list() + add comments on whether we provide the input or they have to generate it themselves
 parser <- ArgumentParser(
     description = "Pipeline for running ArchR Motif Enrichment."
 )

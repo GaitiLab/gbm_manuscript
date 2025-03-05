@@ -9,7 +9,7 @@ GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
 
-# Load libraries
+# Load required packages
 pacman::p_load(
     glue,
     data.table,
@@ -21,9 +21,7 @@ pacman::p_load(
     readxl
 )
 
-# Required input:
-# output_dir and interactions_path need to be set by user
-# Other parameters set to match Figures in publication
+# Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
     interactions_path = "misc/SuppTables/Table S4.xlsx",

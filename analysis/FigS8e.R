@@ -9,7 +9,7 @@ GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
 
-# Load libraries
+# Load required packages
 pacman::p_load(
     argparse,
     varhandle,
@@ -32,7 +32,10 @@ pacman::p_load(
     colorRamp2
 )
 
+# Required inputs
 params <- list(
+    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
+
     input = "/multiome_results/10_ArchR",
     archr_threads = 8,
     genome_version = "hg38",

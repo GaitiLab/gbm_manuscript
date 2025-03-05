@@ -1,13 +1,37 @@
-library(igraph)
-library(readr)
+# ---- Code to reproduce Figure 4c, S7e ---- #
+
+# Unload all previously loaded packages + remove previous environment
+rm(list = ls(all = TRUE))
+pacman::p_unload()
+
+# Set working directory
+GaitiLabUtils::set_wd()
+
+# ---- Setup script ---- #
+# Load required packages
+pacman::p_load(igraph, readr, data.table, tidyverse, eulerr)
+
+# Required inputs
+params <- list(
+    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
+    lineage_genes_path = "misc/data/Marker_genes.csv",
+    TFs_to_plot_path = "multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv",
+    plot_dir = "output/submission/figures",
+    eregulons_path = "eRegulons_simplified.csv",
+    scenicplus_activator_gene_list_path = "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/df/SCENICplus_activator_gene_list.csv",
+    TFs_priority_to_plot_path = "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/df/all_regions/TFs_to_plot.csv",
+    opc_diff_tfs_path <- "misc/data/OPC_diff_TFs.csv"
+)
+
+GaitiLabUtils::create_dir(params$plot_dir)
 
 # ---------------------------------------- Venn diagram for overlaping TFs for lineage-specific genes ---------------------------------------- #
 # Load the list of lineage-specific genelist
-lineage_genes <- fread("misc/data/Marker_genes.csv", header = TRUE)
+lineage_genes <- fread(params$lineage_genes_path, header = TRUE)
 lineage_gene_list <- split(lineage_genes$Gene, lineage_genes$class)
 
 invasive_high_TFs <- read_csv(
-    "multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv"
+    params$TFs_to_plot_path
 )
 invasive_high_TFs <- invasive_high_TFs$TF[
     invasive_high_TFs$Cell_type == "Invasive-high OPC/NPC1"
@@ -19,13 +43,14 @@ lineage_gene_list <- lapply(
     function(x) x[x %in% invasive_high_TFs]
 )
 
-output_file <- paste0(args$output_dir, "/Plots/venn_lineage.pdf")
+output_file <- file.path(params$plot_dir, "Figc_venn_lineage.pdf")
 pdf(output_file, width = 5, height = 5)
+# TODO @Yiyan-YW are you using the eulerr package for this? (see pacman::p_load())
 plot(euler(lineage_gene_list, shape = "ellipse"), quantities = TRUE)
 dev.off()
 
 # Loading eRegulon metadata
-eRegulons <- fread(paste0(args$input, "/eRegulons_simplified.csv"))
+eRegulons <- fread(params$eregulons_path)
 
 # Identify background genes = all genes predicted by SCENIC+ as targets of any TF
 all_target_genes <- unique(eRegulons$Gene)
@@ -41,20 +66,16 @@ colnames(target_gene_per_TF) <- "Genes"
 
 # Iterate through each row of the data frame to create a list of target genes for each TF
 target_gene_list <- list()
-for (i in 1:nrow(target_gene_per_TF)) {
+for (i in seq_len(nrow(target_gene_per_TF))) {
     TF_name <- rownames(target_gene_per_TF)[i]
     target_gene_list[[TF_name]] <- unlist(target_gene_per_TF$Genes[i])
 }
 
 # Load the data
-gene_list <- read_csv(
-    "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/df/SCENICplus_activator_gene_list.csv"
-)
+gene_list <- read_csv(params$scenicplus_activator_gene_list_path)
 
 # Inv_high TFs
-TF_priority_list <- read_csv(
-    "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/df/all_regions/TFs_to_plot.csv"
-)
+TF_priority_list <- read_csv(TFs_priority_to_plot_path)
 TF_priority <- TF_priority_list$TF[
     TF_priority_list$Cell_type == "Invasive-high OPC/NPC1"
 ]
@@ -81,8 +102,7 @@ edge_df <- do.call(rbind, edges)
 gene_network <- graph_from_edgelist(as.matrix(edge_df), directed = TRUE)
 
 # Load the list of differentially expressed TFs
-opc_diff_tfs_path <- "misc/data/OPC_diff_TFs.csv"
-opc_diff_tfs <- read_csv(opc_diff_tfs_path)
+opc_diff_tfs <- read_csv(params$opc_diff_tfs_path)
 opc_diff_tfs <- opc_diff_tfs$x # Assuming 'x' is the column with the TF names
 
 # Calculate the degree of each node
@@ -113,7 +133,7 @@ V(gene_network)$label.cex <- 0.5 # Control label size
 layout <- layout_with_fr(gene_network)
 
 # Save the plot
-plot_path <- "multiome_results/12_SCENIC_plus/ATAC/Integrated_confident/Plots/PT,TE/gene_network.pdf"
+plot_path <- file.path(params$plot_dir, "Fig7e.pdf")
 pdf(plot_path, width = 10, height = 10)
 # Plot the network with custom attributes
 network <- plot(

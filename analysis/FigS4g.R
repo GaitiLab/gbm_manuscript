@@ -8,6 +8,8 @@ pacman::p_unload()
 GaitiLabUtils::set_wd()
 
 # ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(
     data.table,
     ggplot2,
@@ -22,15 +24,15 @@ pacman::p_load(
 
 region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
 
-# Enter paths here
+# Required inputs
 params <- list(
     seurat_obj_path = "",
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
     # path to Krishna 2023 data. Data can be downloaded on GEO
     krishna2023_dir_path = "/Krishna_2023",
-    path_to_genelists = "misc/SuppTables/Table S2.xlsx",
-    path_to_de_genes_table = "misc/SuppTables/Table S3.xlsx"
+    genelists_path = "misc/SuppTables/Table S2.xlsx",
+    degs_table_path = "misc/SuppTables/Table S3.xlsx"
 )
 
 # Creating directories needed for outputs
@@ -108,7 +110,7 @@ ggsave(filename = "cnv_umap.pdf", path = plot_dir)
 
 # Neftel subtyping and score invasive sig
 
-gene_lists <- readxl::read_excel(params$path_to_genelists, skip = 1)
+gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
 gene_list <- lapply(
     gene_lists %>% dplyr::select(starts_with("Neftel_")) %>% as.list(),
     function(gene_list) {
@@ -117,7 +119,7 @@ gene_list <- lapply(
 )
 
 degs <- readxl::read_excel(
-    params$path_to_de_genes_table,
+    params$degs_table_path,
     sheet = "DEGs",
     skip = 1
 ) %>%

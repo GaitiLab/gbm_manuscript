@@ -7,7 +7,7 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
-# Load needed packages
+# Load required packages
 pacman::p_load(
     varhandle,
     ggplot2,
@@ -27,11 +27,15 @@ pacman::p_load(
     foreach,
     doParallel,
     tidyverse,
-    viridis
+    viridis,
+    circlize,
+    RColorBrewer
 )
 
-
+# Required inputs
 params <- list(
+    # TODO @Yiyan-YW please add (comment) whether these inputs are provided or not or refer to the manuscript if they have to generate these inputs themselves
+
     plot_dir = "output/submission/figures",
     # Gene level
     gene_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_auc_activator_mtx.csv",
@@ -47,22 +51,9 @@ params <- list(
     genelists_csv_path = "misc/SuppTables/Table S2.xlsx"
 )
 
-
-heatmap_data_rna <- fread(
-    "multiome_results/12_SCENIC_plus/outs/RNA_heatmap.csv"
-) |>
-    column_to_rownames("TF")
-heatmap_data_atac <- fread(
-    "multiome_results/12_SCENIC_plus/outs/ATAC_heatmap.csv"
-) |>
-    column_to_rownames("TF")
-TFs_to_plot <- fread(
-    "multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv",
-    header = TRUE
-)
-
 GaitiLabUtils::create_dir(params$plot_dir)
 
+# ---- Load data  ---- #
 OPC_NPC1_markers <- readxl::read_excel(params$genelists_csv_path, skip = 1) %>%
     filter(!is.na(Neftel_OPC), !is.na(Neftel_NPC1)) %>%
     dplyr::select(Neftel_OPC, Neftel_NPC1) %>%
@@ -70,19 +61,17 @@ OPC_NPC1_markers <- readxl::read_excel(params$genelists_csv_path, skip = 1) %>%
     unname() %>%
     unique()
 
-# --------------------------------------------- Plotting the heatmap --------------------------------------------- #
 heatmap_data_rna <- fread(params$heatmap_data_rna_path) |>
     column_to_rownames("TF")
 heatmap_data_atac <- fread(params$heatmap_data_atac_path) |>
     column_to_rownames("TF")
-TFs_to_plot <- fread(params$TFs_to_plot, header = TRUE)
+TFs_to_plot <- fread(params$TFs_to_plot_path, header = TRUE)
 
+
+# ---- Data wrangling ---- #
 TF_names_to_plot <- TFs_to_plot %>%
     filter(Cell_type == "Invasive-high OPC/NPC1") %>%
     pull(TF)
-
-
-pacman::p_load(ComplexHeatmap, circlize, RColorBrewer)
 
 # Subset RNA and ATAC heatmap data
 heatmap_data_rna_inv <- heatmap_data_rna[TF_names_to_plot, , drop = FALSE]

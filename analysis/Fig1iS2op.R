@@ -7,7 +7,7 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
-# Load needed libraries
+# Load required packages
 pacman::p_load(
     data.table,
     stringr,
@@ -19,13 +19,13 @@ pacman::p_load(
 )
 
 # Set up logging
-logr <- GaitiLabUtils::init_logging(log_level = 5)
+logr <- GaitiLabUtils::init_logging()
 
-# Required input
+# Required inputs
 params <- list(
     output_dir = "output/submission/",
     plot_dir = "output/submission/figures",
-    input = "data/GBM_mIHC"
+    input_dir = "data/GBM_mIHC"
 )
 
 GaitiLabUtils::create_dir(params$output_dir)
@@ -33,7 +33,7 @@ GaitiLabUtils::create_dir(params$plot_dir)
 
 # Get all the files in the input directory
 input_files <- list.files(
-    params$input,
+    params$input_dir,
     full.names = TRUE,
     pattern = "\\.txt$",
     recursive = TRUE
@@ -45,18 +45,21 @@ sample_names <- unique(str_extract(basename(input_files), "^[^_]+"))
 curr_sample_name <- "All"
 
 ### Parsing arguments
-log_info("Input: ", params$input)
+log_info("Input: ", params$input_dir)
 log_info("Current sample: ", curr_sample_name)
 log_info("Output directory: ", params$output_dir)
 
 # ------------------------- Loading data ------------------------- #
 log_info("Loading data...")
-normal_region <- fread(file.path(params$input, "GreenConsolidated_data.txt"))
+normal_region <- fread(file.path(
+    params$input_dir,
+    "GreenConsolidated_data.txt"
+))
 infiltrative_region <- fread(file.path(
-    params$input,
+    params$input_dir,
     "BlueConsolidated_data.txt"
 ))
-tumor_region <- fread(file.path(params$input, "RedConsolidated_data.txt"))
+tumor_region <- fread(file.path(params$input_dir, "RedConsolidated_data.txt"))
 
 # Merge infiltrative_region and tumors together
 normal_region$region <- "infiltrative"
@@ -126,6 +129,7 @@ df_filtering <- function(df, column) {
     return(df)
 }
 
+# TODO check if this is the same as the one in GaitiLabUtils, if so remove
 geom_signif_lmm <- function(
     data_df,
     response,
@@ -261,7 +265,7 @@ df_FOV <- df_FOV |>
     mutate(aggregation = progenitor_pos)
 summary_data <- df_aggregation(df_FOV, "progenitor_pos")
 
-ggplot(df_FOV, aes(x = region, y = aggregation, color = region)) +
+p <- ggplot(df_FOV, aes(x = region, y = aggregation, color = region)) +
     geom_jitter(width = 0.3, size = 0.8, alpha = 0.7) +
     geom_errorbar(
         data = summary_data,
@@ -312,7 +316,8 @@ ggplot(df_FOV, aes(x = region, y = aggregation, color = region)) +
         color = "black"
     )
 ggsave(
-    "FigS2p.pdf",
+    plot = p,
+    filename = "FigS2p.pdf",
     width = 6,
     height = 4,
     path = params$plot_dir
@@ -320,8 +325,6 @@ ggsave(
 
 # ------------------------- Inv cell composition ------------------------- #
 log_info("Checking for presence of inv high cells in SOX2+ cells...")
-filtering_method <- "non_zero"
-aggregation_method <- "median"
 df <- mIHC_df |>
     filter(`Phenotype SOX2` == "SOX2+") |>
     group_by(`Sample Name`, region, `Slide Name`) |>
@@ -398,7 +401,7 @@ results <-
     )
 
 # plot log2 fold change
-ggplot() +
+p <- ggplot() +
     geom_bar(
         data = df_infiltrative_summary,
         aes(x = `Slide Name`, y = mean_log2_fold_change),
@@ -444,7 +447,8 @@ ggplot() +
     ) +
     coord_flip()
 ggsave(
-    "Fig1i.pdf",
+    plot = p,
+    filename = "Fig1i.pdf",
     width = 6,
     height = 4,
     path = params$plot_dir

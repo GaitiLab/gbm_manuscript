@@ -7,6 +7,9 @@ pacman::p_unload()
 # Set working directory
 GaitiLabUtils::set_wd()
 
+# ---- Setup script ---- #
+
+# Load required packages
 pacman::p_load(
     glue,
     data.table,
@@ -20,6 +23,7 @@ pacman::p_load(
     ggtext
 )
 
+# Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
     interactions_path = "misc/SuppTables/Table S4.xlsx",

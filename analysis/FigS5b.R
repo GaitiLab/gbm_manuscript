@@ -21,6 +21,7 @@ pacman::p_load(
     ggtext
 )
 
+# Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
     # scRNAseq Seurat object
