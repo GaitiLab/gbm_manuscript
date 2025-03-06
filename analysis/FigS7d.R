@@ -29,165 +29,17 @@ pacman::p_load(
     stringr,
     data.table,
     ComplexHeatmap,
-    colorRamp2
+    colorRamp2,
 )
 
 # Required inputs
 params <- list(
-    input = "/multiome_results/10_ArchR", # ArchR project directory - figure can be reproduced using results from table S2
-    archr_threads = 8,
-    genome_version = "hg38",
-    celltype_column = "CellClass_L5_2",
-    patient_column = "Patient",
-    region_column = "Region",
-    confidence_column = "Confident_Annotation",
-    p_cutoff = 0.1,
-    include_types = "Malignant_NPC1,Malignant_NPC2,Malignant_OPC,Invasive-high_OPC_NPC1,Malignant_AC,Malignant_MES_AST,Malignant_MES_INT,Malignant_MES_HYP",
-    exclude_types = NULL,
-    include_regions = NULL,
-    topVarGenes = 10000,
-    folder_name = "CellClass_L5_2_archr_top10000",
-    output_dir = "output",
-    plot_dir = "output/figures",
+    input = "misc/marker_list.csv",
+    plot_dir = "output/figures"
 )
 
-GaitiLabUtils::create_dir(params$plot_dir)
-GaitiLabUtils::create_dir(params$output_dir)
-
-# Load the ArchR library
-addArchRThreads(threads = as.numeric(params$archr_threads))
-addArchRGenome(params$genome_version)
-
-# Load the ArchR project
-archr_proj <- loadArchRProject(params$input)
-cell_type_column <- paste0("Seurat_", params$celltype_column)
-patient_column <- paste0("Seurat_", params$patient_column)
-region_column <- paste0("Seurat_", params$region_column)
-confidence_column <- paste0("Seurat_", params$confidence_column)
-
-# Filter cells based on cell types, regions, and confidence
-if (!is.null(params$include_types)) {
-    include_types <- str_split(params$include_types, ",")[[1]]
-    archr_proj <- archr_proj[which(
-        getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in%
-            include_types
-    )]
-} else if (!is.null(params$exclude_types)) {
-    exclude_types <- str_split(params$exclude_types, ",")[[1]]
-    archr_proj <- archr_proj[which(
-        !(getCellColData(
-            archr_proj,
-            select = cell_type_column,
-            drop = TRUE
-        ) %in%
-            exclude_types)
-    )]
-}
-
-archr_proj <- archr_proj[which(
-    getCellColData(archr_proj, select = confidence_column, drop = TRUE) ==
-        "TRUE"
-)]
-
-if (!is.null(params$include_regions)) {
-    include_regions <- str_split(params$include_regions, ",")[[1]]
-    archr_proj <- archr_proj[which(
-        getCellColData(archr_proj, select = region_column, drop = TRUE) %in%
-            include_regions
-    )]
-}
-
-# Define groups
-df <- getCellColData(
-    archr_proj,
-    select = c(cell_type_column, patient_column, region_column),
-    drop = TRUE
-)
-low <- c("Malignant_NPC1", "Malignant_NPC2", "Malignant_OPC")
-high <- "Invasive-high_OPC_NPC1"
-
-# Differential accessibility analysis
-archr_proj_low_and_high <- archr_proj[which(
-    getCellColData(archr_proj, select = cell_type_column, drop = TRUE) %in%
-        c(low, high)
-)]
-archr_proj_low <- archr_proj_low_and_high[which(
-    getCellColData(
-        archr_proj_low_and_high,
-        select = cell_type_column,
-        drop = TRUE
-    ) %in%
-        low
-)]
-archr_proj_high <- archr_proj_low_and_high[which(
-    getCellColData(
-        archr_proj_low_and_high,
-        select = cell_type_column,
-        drop = TRUE
-    ) %in%
-        high
-)]
-
-metadata <- getCellColData(
-    archr_proj_low_and_high,
-    select = c(cell_type_column, patient_column, region_column),
-    drop = TRUE
-)
-metadata <- as.data.frame(metadata) %>%
-    mutate(low_and_high = ifelse(!!sym(cell_type_column) == low, "low", "high"))
-
-DiffLMM_results <- DiffLMM(
-    metadata = metadata,
-    provided.matrix = gene_score_mat,
-    sample.column = patient_column,
-    treatment.column = "low_and_high",
-    treatment.levels = c("low", "high"),
-    ncores = 8
-)
-saveRDS(
-    DiffLMM_results,
-    file = file.path(params$output_dir, "FigS8e_DiffLMM_low_vs_high.rds")
-)
-
-DiffLMM_results <- readRDS(file.path(
-    params$output_dir,
-    "FigS8e_DiffLMM_low_vs_high.rds"
-))
-
-DiffLMM_results <- DiffLMM_results %>%
-    mutate(log2FC = log2(fc))
-
-log_info("Extracting required results...")
-marker_list <- data.table(
-    name = rownames(DiffLMM_results),
-    log2FC = DiffLMM_results$log2FC,
-    Pval = DiffLMM_results$pval,
-    FDR = DiffLMM_results$fdr
-)
-
-# Get highly variable genes
-curr_cells <- archr_proj_low_and_high$cellNames
-gene_variances <- rowIQRs(gene_score_mat[, curr_cells], useNames = TRUE)
-gene_variances <- gene_variances[order(gene_variances, decreasing = TRUE)]
-
-top_genes <- names(gene_variances)[1:params$topVarGenes]
-marker_list <- marker_list[!is.na(FDR), ]
-marker_list <- marker_list[name %in% top_genes, ]
-marker_list$FDR <- p.adjust(marker_list$Pval, method = "fdr")
-
-marker_list <- marker_list %>%
-    mutate(
-        comparison = paste0(high, "_vs_All"),
-        cell_type = paste0(high, "_vs_All"),
-    )
-
-# Volcano plot for differentially accessible genes and NOTCH signaling pathway genes
-marker_list$label <- ifelse(
-    marker_list$FDR < 0.05 & abs(as.numeric(marker_list$log2FC)) > 0.1,
-    "adj_p<0.05 & log2FC>0.1",
-    "adj_p>=0.05 or log2FC<0.1"
-)
-marker_list <- marker_list[!is.na(FDR), ]
+# Load data
+marker_list <- readr::read_csv(params$input)
 
 # Specify the log2FC and FDR cutoffs
 curr.log2FC <- 0.1

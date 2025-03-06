@@ -20,9 +20,13 @@ pacman::p_load(
 # Required inputs
 
 params <- list(
-    input = "multiome_results/12_SCENIC_plus/outs", # SCENIC+ in silico perturbation results
-    output_dir = "multiome_results/12_SCENIC_plus/outs",
+    # Follow SCENIC+ in silico perturbation workflow to generate the input
+    input = "", # SCENIC+ in silico perturbation results
+    output_dir = "",
+
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     merged_obj = "", # Seurat object with original data
+
     include_regions = "all_regions",
     DE_genes = "inv_sig.csv", # invasive signature genes from Table S2
     TF_to_perturb = "ZEB1"
@@ -69,8 +73,7 @@ plot_invasion_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -256,8 +259,7 @@ plot_invasion_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -375,8 +377,7 @@ plot_transition_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -557,8 +558,7 @@ plot_transition_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -679,8 +679,7 @@ plot_signature_change_probabilities_per_sample <- function(
     TF_to_perturb,
     signature,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(

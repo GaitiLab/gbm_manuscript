@@ -29,87 +29,18 @@ logr <- GaitiLabUtils::init_logging()
 
 # Required inputs
 params <- list(
-    # path pointing to the output directory of inferCNV
-    input_dir = "GBM_VisiumHD/results/InferCNV",
+    input = "msic/InferCNV.csv",
     plot_dir = "output/figures"
 )
 GaitiLabUtils::create_dir(params$plot_dir)
 
-# Find all CNV files
-all_cnv_files <- list.files(
-    params$input_dir,
-    pattern = "CNV_signal.csv",
-    full.names = TRUE,
-    recursive = TRUE
-)
-
-# Read all files and combine into a single data frame
-all_cnv_data <- lapply(all_cnv_files, fread) %>%
-    bind_rows()
-
-# Formatting data for plotting
-all_cnv_data <- all_cnv_data %>%
-    mutate(Cluster_name = paste0(Sample, "_", Group))
-
-# Add a column to indicate whether to highlight
-highlight_groups <- c(
-    "6425_B_D1_g4",
-    "6425_B_D1_g5",
-    "6425_A_A1_g8",
-    "6425_A_A1_g9",
-    "6425_A_A1_g2",
-    "6425_A_A1_g13",
-    "6425_A_A1_g17",
-    "6425_A_A1_g7",
-    "6425_A_A1_g1",
-    "6425_A_A1_g4",
-    "6425_A_A1_g3",
-    "6425_A_A1_g14",
-    "6425_A_A1_g5",
-    "6425_A_A1_g10",
-    "6425_A_A1_g15"
-)
-all_cnv_data <- all_cnv_data %>%
-    mutate(
-        Label = case_when(
-            Cluster_name %in% highlight_groups ~ "Malignant",
-            str_detect(Cluster_name, "Malignant") ~ "Malignant",
-            TRUE ~ "Normal"
-        )
-    ) %>%
-    filter(!str_detect(Group, "Undetermined"))
-
-# Order chromosomes for plotting
-all_cnv_data$Chromosome <- factor(
-    all_cnv_data$Chromosome,
-    levels = c("Chr7", "Chr10")
-)
-
-# Set gain and loss cutoffs 2 MADs away from the median for each chromosome
-chr7gain_cutoff <- median(all_cnv_data$Scaled_CNV[
-    all_cnv_data$Chromosome == "Chr7"
-]) +
-    2 * mad(all_cnv_data$Scaled_CNV[all_cnv_data$Chromosome == "Chr7"])
-chr10loss_cutoff <- median(all_cnv_data$Scaled_CNV[
-    all_cnv_data$Chromosome == "Chr10"
-]) -
-    2 * mad(all_cnv_data$Scaled_CNV[all_cnv_data$Chromosome == "Chr10"])
-
-# Plotting scatter plot of chr7 and chr10 with cutoffs
-chr7_values <- all_cnv_data$Scaled_CNV[all_cnv_data$Chromosome == "Chr7"]
-chr10_values <- all_cnv_data$Scaled_CNV[all_cnv_data$Chromosome == "Chr10"]
-groups <- all_cnv_data$Cluster_name[all_cnv_data$Chromosome == "Chr7"]
-Sample <- all_cnv_data$Sample[all_cnv_data$Chromosome == "Chr7"]
-
-scatter_df <- data.frame(
-    Group = groups,
-    Sample = Sample,
-    Chr7 = chr7_values,
-    Chr10 = chr10_values,
-    Label = all_cnv_data$Label[all_cnv_data$Chromosome == "Chr7"]
-)
+# ---- Load data ---- #
+scatter_df <- fread(params$input)
 
 # Calculate axis limits
+chr7_values <- scatter_df$Chr7
+chr10_values <- scatter_df$Chr10
+
 all_values <- c(chr7_values, chr10_values) - 1
 axis_limit <- max(abs(all_values)) * 1.1
 axis_max <- 1 + axis_limit

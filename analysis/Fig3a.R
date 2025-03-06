@@ -35,13 +35,9 @@ pacman::p_load(
 # Required inputs
 params <- list(
     plot_dir = "output/figures",
-    # TF activity
-    gene_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_auc_activator_mtx.csv", # SCENIC+ results
-    region_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv", # SCENIC+ resultso_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_TFs_to_label.csv", # Information in Table S2
-
     # Heatmap data rna and atac
-    heatmap_data_rna_path = "multiome_results/12_SCENIC_plus/outs/RNA_heatmap.csv",
-    heatmap_data_atac_path = "multiome_results/12_SCENIC_plus/outs/ATAC_heatmap.csv",
+    heatmap_data_rna_path = "misc/RNA_heatmap.csv",
+    heatmap_data_atac_path = "misc/ATAC_heatmap.csv",
     TFs_to_plot_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
 )
 

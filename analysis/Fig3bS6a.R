@@ -36,10 +36,10 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    input = "multiome_results/10_ArchR",
+    input = "multiome_results/10_ArchR", # Please use the data provided in the publication and follow ArchR workflow to generate the data
     background_peaks = "per_patient", # Calculate with per patient or all cells sum up - to reproduce the results in the paper, use "per_patient"
     plot_dir = "10_ArchR/Plots",
-    expression_matrix = "multiome_results/TF_exp_mtx.csv" # Subset expression matrix for TFs
+    expression_matrix = "TF_exp_mtx.csv" # Subset expression matrix for TFs = generated from data from publication and subsetted to TFs of interest
 )
 
 params$output_dir <- params$input
