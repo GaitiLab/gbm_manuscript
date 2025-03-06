@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/832940437.svg)](https://doi.org/10.5281/zenodo.14984440)
+
 # Overview
 
 Repository with code to reproduce analyses and figures in "Neurodevelopmental hijacking of oligodendrocyte lineage programs drives glioblastoma infiltration"
