@@ -22,13 +22,12 @@ pacman::p_load(
 params <- list(
     # Follow SCENIC+ in silico perturbation workflow to generate the input
     input = "", # SCENIC+ in silico perturbation results
-
     include_regions = "all_regions",
-    DE_genes = "inv_sig.csv", # invasive signature genes from Table S2
     TF_to_perturb = "ZEB1"
 )
 
 # Create a Seurat object with the original expression matrix and the perturbed expression matrix
+# Score with invasive signature and OPC-COP signature from table 2
 curr_seurat_obj <- readRDS(paste0(
     input,
     "/curr_seurat_obj_",
@@ -65,7 +64,8 @@ plot_invasion_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -251,7 +251,8 @@ plot_invasion_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -369,7 +370,8 @@ plot_transition_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -550,7 +552,8 @@ plot_transition_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -671,7 +674,8 @@ plot_signature_change_probabilities_per_sample <- function(
     TF_to_perturb,
     signature,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
