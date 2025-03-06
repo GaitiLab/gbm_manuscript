@@ -36,6 +36,7 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
+    # Path to Seurat object generated using this manuscript's data
     seurat_obj_path = "",
     degs_table_path = "misc/Table S2.xlsx", # can be downloaded online
     plot_dir = "output/submission/figures"

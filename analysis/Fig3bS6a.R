@@ -454,7 +454,7 @@ for (TF_name in unique(df_neuronal$TF)) {
     ggsave(
         paste0(
             plot_dir,
-            "/Neuronal_motif_deviation_score_scatterplot_legend_",
+            "/Neuronal_motif_deviation_score_scatterplot_",
             TF_name,
             method,
             ".pdf"

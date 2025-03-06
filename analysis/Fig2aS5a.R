@@ -245,6 +245,6 @@ hm <- create_hm(
 R.devices::suppressGraphics({
     save_hm(
         hm_obj = hm,
-        output_file = file.path(params$plot_dir, "FigS5b.pdf")
+        output_file = file.path(params$plot_dir, "FigS5a.pdf")
     )
 })

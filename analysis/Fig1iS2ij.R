@@ -41,7 +41,6 @@ input_files <- list.files(
 sample_names <- unique(str_extract(basename(input_files), "^[^_]+"))
 
 # working on a single sample
-# REVIEW: Change this to work on all samples
 curr_sample_name <- "All"
 
 ### Parsing arguments
@@ -129,49 +128,6 @@ df_filtering <- function(df, column) {
     return(df)
 }
 
-# TODO check if this is the same as the one in GaitiLabUtils, if so remove
-geom_signif_lmm <- function(
-    data_df,
-    response,
-    condition,
-    latent_vars,
-    comparisons,
-    y_position = NULL,
-    tip_length = 0.03,
-    size = 0.5,
-    step_increase = 0
-) {
-    require(lme4)
-    require(ggsignif)
-    require(dplyr)
-
-    p_vals <- sapply(seq_along(comparisons), function(comp) {
-        curr_comparison <- comparisons[[comp]]
-        curr_df <- data_df %>%
-            filter(!!sym(condition) %in% curr_comparison)
-        p_val <- GaitiLabUtils::LMM_test(
-            curr_df,
-            response,
-            condition,
-            latent_vars
-        )
-
-        return(p_val)
-    })
-
-    return(
-        geom_signif(
-            comparisons = comparisons,
-            map_signif_level = FALSE,
-            annotations = p_vals,
-            y_position = y_position,
-            tip_length = tip_length,
-            size = size,
-            step_increase = step_increase
-        )
-    )
-}
-
 # ------------------------- SOX2+ percentage across regions ------------------------- #
 log_info("Checking SOX2+ expression density across regions")
 df <- mIHC_df |>
@@ -242,7 +198,7 @@ ggplot(df_FOV, aes(x = region, y = aggregation, color = region)) +
         color = "black"
     )
 ggsave(
-    filename = "FigS2o.pdf",
+    filename = "FigS2i.pdf",
     width = 6,
     height = 4,
     path = params$plot_dir
@@ -317,7 +273,7 @@ p <- ggplot(df_FOV, aes(x = region, y = aggregation, color = region)) +
     )
 ggsave(
     plot = p,
-    filename = "FigS2p.pdf",
+    filename = "FigS2j.pdf",
     width = 6,
     height = 4,
     path = params$plot_dir

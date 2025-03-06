@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure S8e ---- #
+# ---- Code to reproduce Figure S7d ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -332,7 +332,7 @@ volc <- ggplot(
     )
 ggsave(
     filename = paste0(
-        "FigS8e_DiffAccess_",
+        "FigS7d_DiffAccess_",
         "all",
         "_low_vs_high_highlight_specific_gene.pdf"
     ),

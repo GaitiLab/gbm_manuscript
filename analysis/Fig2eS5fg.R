@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure 2e, S5h, i ---- #
+# ---- Code to reproduce Figure 2e, S5f, g ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -300,7 +300,6 @@ ggsave(
     ),
     height = 4,
     width = 10,
-
     path = params$plot_dir
 )
 
@@ -382,7 +381,7 @@ ggsave(
     path = params$plot_dir
 )
 
-# ---- Create Figure S5h ---- #
+# ---- Create Figure S5f ---- #
 
 # Split into shuffled and observed
 stat_shuffled_df_subset_long <- stat_df_wide %>%
@@ -471,14 +470,14 @@ log_info("Save figure as PDF...")
 ggsave(
     p_histo,
     filename = glue(
-        "FigS5h_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_histo_DL_and_PL_closest.pdf"
+        "FigS5f_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_histo_DL_and_PL_closest.pdf"
     ),
     height = 8,
     path = params$plot_dir
 )
 
 
-# ---- Create Figure S5i ---- #
+# ---- Create Figure S5g ---- #
 
 # Split into shuffled and observed
 stat_shuffled_df_subset_long <- stat_df_wide %>%
@@ -559,7 +558,7 @@ log_info("Save figure as PDF...")
 ggsave(
     p_histo,
     filename = glue(
-        "FigS5i_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_histo_all_furthest.pdf"
+        "FigS5g_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_histo_all_furthest.pdf"
     ),
     height = 8,
     path = params$plot_dir
@@ -598,7 +597,7 @@ log_info("Save figure as PDF...")
 ggsave(
     p_bar,
     filename = glue(
-        "FigS5i_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_barplot_furthest_from_neuron.pdf"
+        "FigS5g_malign_signature_vs_proximity_k{params$k_neighbors}_neurons_barplot_furthest_from_neuron.pdf"
     ),
     height = 4,
     width = 10,

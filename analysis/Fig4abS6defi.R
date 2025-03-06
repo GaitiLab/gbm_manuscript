@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure 4a,b and S7a,b,c,g ---- #
+# ---- Code to reproduce Figure 4a,b and 6a,b,c,g ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -49,7 +49,7 @@ seurat_obj <- sceasy::convertFormat(
     params$braun_h5ad_path,
     from = "anndata",
     to = "seurat",
-    outFile = 'filename.rds'
+    outFile = "filename.rds"
 )
 print(seurat_obj)
 print(colnames(seurat_obj[[]]))
@@ -69,7 +69,7 @@ dev_brain <- sceasy::convertFormat(
     params$braun_subsampled_h5ad_path,
     from = "anndata",
     to = "seurat",
-    outFile = 'filename.rds'
+    outFile = "filename.rds"
 )
 
 # ---------------------------------------------------------------------------- #
@@ -203,7 +203,7 @@ df$dpt <- dpt$dpt
 write.csv(df, file.path(params$output_dir, "diffusion_comps.csv"))
 
 # ---------------------------------------------------------------------------- #
-#                                 Figure S7b,c                                 #
+#                                 Figure S6e,f                                 #
 # ---------------------------------------------------------------------------- #
 
 # Load gene sets
@@ -247,7 +247,7 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = invasive_signature)) +
     scale_fill_manual(values = cols)
 ggsave(
     plot = p,
-    filename = "FigS7b_inv_sig_in_opc_lineage.pdf",
+    filename = "FigS6e_inv_sig_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
 )
@@ -265,7 +265,7 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = DEG3)) +
     scale_fill_manual(values = cols)
 ggsave(
     plot = p,
-    filename = "FigS7b_neftel_opc_in_opc_lineage.pdf",
+    filename = "FigS6e_neftel_opc_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
 )
@@ -283,7 +283,7 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = DEG4)) +
     scale_fill_manual(values = cols)
 ggsave(
     plot = p,
-    filename = "FigS7c_synapse_in_opc_lineage.pdf",
+    filename = "FigS6f_synapse_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
 )
@@ -301,13 +301,13 @@ p <- ggplot(seurat_obj[[]], aes(x = CellClass_L3, y = DEG5)) +
     scale_fill_manual(values = cols)
 ggsave(
     plot = p,
-    filename = "FigS7c_synaptic_signaling_in_opc_lineage.pdf",
+    filename = "FigS6f_synaptic_signaling_in_opc_lineage.pdf",
     path = params$plot_dir,
     width = 4
 )
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S7g                                  #
+#                                  Figure S6i                                  #
 # ---------------------------------------------------------------------------- #
 
 p <- DotPlot(
@@ -319,7 +319,7 @@ p <- DotPlot(
     theme(axis.text.x = element_text(angle = 90))
 ggsave(
     plot = p,
-    filename = "FigS7g.pdf",
+    filename = "FigS6i.pdf",
     path = params$plot_dir,
     height = 6,
     width = 4
@@ -413,8 +413,9 @@ ggsave(
     height = 8,
     width = 9
 )
+
 # ---------------------------------------------------------------------------- #
-#                                  Figure S7a                                  #
+#                                  Figure S6d                                  #
 # ---------------------------------------------------------------------------- #
 
 dcs <- diff_comp %>% dplyr::select(all_of(c("DC1", "DC2")))
@@ -487,7 +488,7 @@ p <- p1 /
     p3
 ggsave(
     plot = p,
-    filename = "FigS7a.pdf",
+    filename = "FigS6d.pdf",
     path = params$plot_dir,
     height = 15,
     width = 7

@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure S5g ---- #
+# ---- Code to reproduce Figure S5d ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -299,7 +299,7 @@ for (current_sample_id in sample_ids) {
         output_file = file.path(
             params$plot_dir,
             glue(
-                "FigS5g-{current_sample_id}_expression_heatmaps.pdf"
+                "FigS5d-{current_sample_id}_expression_heatmaps.pdf"
             )
         ),
         heatmap_legend_side = "bottom",

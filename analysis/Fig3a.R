@@ -34,20 +34,15 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-
     plot_dir = "output/submission/figures",
-    # Gene level
+    # TF activity
     gene_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_auc_activator_mtx.csv", # SCENIC+ results
-    gene_TFs_to_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/gene_TFs_to_label.csv", # Information in Table S2
-    # Region level
-    region_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv", # SCENIC+ results
-    region_TFs_to_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_TFs_to_label.csv", # Information in Table S2
+    region_auc_activator_mtx_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_auc_activator_mtx.csv", # SCENIC+ resultso_label_path = "multiome_results/12_SCENIC_plus/outs/Plots/all_regions/Filtered_TFs/region_TFs_to_label.csv", # Information in Table S2
 
     # Heatmap data rna and atac
     heatmap_data_rna_path = "multiome_results/12_SCENIC_plus/outs/RNA_heatmap.csv",
     heatmap_data_atac_path = "multiome_results/12_SCENIC_plus/outs/ATAC_heatmap.csv",
-    TFs_to_plot_path = "multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv",
-    genelists_csv_path = "misc/gene_signatures.xlsx"
+    TFs_to_plot_path = "misc/Table S2.xlsx", # can be downloaded online
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)
@@ -64,8 +59,13 @@ heatmap_data_rna <- fread(params$heatmap_data_rna_path) |>
     column_to_rownames("TF")
 heatmap_data_atac <- fread(params$heatmap_data_atac_path) |>
     column_to_rownames("TF")
-TFs_to_plot <- fread(params$TFs_to_plot_path, header = TRUE)
 
+# Load TFs to plot
+TFs_to_plot <- readxl::read_excel(
+    params$TFs_to_plot_path,
+    sheet = "GRN",
+    skip = 1
+)
 
 # ---- Data wrangling ---- #
 TF_names_to_plot <- TFs_to_plot %>%

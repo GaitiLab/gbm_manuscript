@@ -69,8 +69,7 @@ plot_invasion_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -256,8 +255,7 @@ plot_invasion_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -369,14 +367,13 @@ plot_invasion_difference(
 )
 
 # ---------------------------------------------------------------------------- #
-#                               Figure 4e S7f                                  #
+#                               Figure 4e 6h                                  #
 # ---------------------------------------------------------------------------- #
 plot_transition_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -401,7 +398,7 @@ plot_transition_probabilities_per_sample <- function(
         group_by(!!annotation_col, transition, Sample) %>%
         summarize(
             count = n(),
-            .groups = 'drop'
+            .groups = "drop"
         )
 
     # Pivot the data to have one row per cell type with columns for Differentiation and De-differentiation counts
@@ -438,7 +435,7 @@ plot_transition_probabilities_per_sample <- function(
                 p = 0.5,
                 alternative = "two.sided"
             )$p.value,
-            .groups = 'drop'
+            .groups = "drop"
         ) %>%
         mutate(p_value = formatC(p_value, format = "e", digits = 2))
     binomial_results <- update_annotation_labels(
@@ -468,7 +465,7 @@ plot_transition_probabilities_per_sample <- function(
         summarize(
             mean_prob = mean(Probability),
             sem_prob = sd(Probability) / sqrt(n()),
-            .groups = 'drop'
+            .groups = "drop"
         )
     write.csv(
         summary_data,
@@ -557,8 +554,7 @@ plot_transition_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -583,7 +579,7 @@ plot_transition_difference <- function(
         group_by(!!annotation_col, transition, Sample) %>%
         summarize(
             count = n(),
-            .groups = 'drop'
+            .groups = "drop"
         )
 
     # Calculate the transition ratio for each cell type
@@ -610,7 +606,7 @@ plot_transition_difference <- function(
         summarize(
             mean_difference = mean(prop_differece),
             sem_difference = sd(prop_differece) / sqrt(n()),
-            .groups = 'drop'
+            .groups = "drop"
         ) %>%
         arrange(mean_difference)
     summary_data <- update_annotation_labels(summary_data, annotation_col)
@@ -672,15 +668,14 @@ plot_transition_difference(
 )
 
 # ---------------------------------------------------------------------------- #
-#                                Figure S7ij                                   #
+#                                Figure S6kl                                   #
 # ---------------------------------------------------------------------------- #
 plot_signature_change_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     signature,
     perturbation_dir,
-    annotation_column
-) {
+    annotation_column) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -722,7 +717,7 @@ plot_signature_change_probabilities_per_sample <- function(
         group_by(!!annotation_col, transition, Sample) %>%
         summarize(
             count = n(),
-            .groups = 'drop'
+            .groups = "drop"
         )
 
     # Pivot the data to have one row per cell type with columns for Increased and Decreased counts
@@ -753,7 +748,7 @@ plot_signature_change_probabilities_per_sample <- function(
                 p = 0.5,
                 alternative = "two.sided"
             )$p.value,
-            .groups = 'drop'
+            .groups = "drop"
         ) %>%
         mutate(p_value = formatC(p_value, format = "e", digits = 2))
     binomial_results <- update_annotation_labels(
@@ -788,7 +783,7 @@ plot_signature_change_probabilities_per_sample <- function(
         summarize(
             mean_prob = mean(Probability),
             sem_prob = sd(Probability) / sqrt(n()),
-            .groups = 'drop'
+            .groups = "drop"
         )
     write.csv(
         summary_data,

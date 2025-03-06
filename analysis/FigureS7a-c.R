@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure S8a-d ---- #
+# ---- Code to reproduce Figure S7a-c ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -78,8 +78,7 @@ cnvInference <- function(
     k = 2,
     cluster_cells = FALSE,
     save = FALSE,
-    matrix_name = "cnv_matrix"
-) {
+    matrix_name = "cnv_matrix") {
     # Get CpG coverage matrix
     obj@genomeMatrices[["cov"]] <- makeWindows_cov(
         obj,
@@ -232,7 +231,7 @@ cnvInference <- function(
 
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S8a                                  #
+#                                  Figure S7a                                  #
 # ---------------------------------------------------------------------------- #
 
 obj <- readRDS(params$path_to_amethys_obj)
@@ -253,7 +252,7 @@ cnv_results <- cnvInference(
 )
 
 pdf(
-    file = file.path(params$plot_dir, "FigS8a_cnv_6425.pdf"),
+    file = file.path(params$plot_dir, "FigS7a_cnv_6425.pdf"),
     width = 15,
     height = 15
 )
@@ -261,36 +260,7 @@ cnv_results
 dev.off()
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S8b                                  #
-# ---------------------------------------------------------------------------- #
-
-obj <- readRDS(params$path_to_amethys_obj)
-obj <- subsetObject(obj, rownames(obj@metadata)[obj@metadata$Patient == "6431"])
-
-ref_cells <- obj@metadata %>% filter(CellClass != "Malignant")
-ref_cells <- rownames(ref_cells)
-
-query_cells <- setdiff(rownames(obj@metadata), ref_cells)
-
-cnv_results <- cnvInference(
-    obj = obj,
-    reference_cells = ref_cells,
-    query_cells = query_cells,
-    step_size = 25e6,
-    num_threads = 15,
-    plot_dir = params$plot_dir
-)
-
-pdf(
-    file = file.path(params$plot_dir, "FigS8b_cnv_6425.pdf"),
-    width = 15,
-    height = 15
-)
-cnv_results
-dev.off()
-
-# ---------------------------------------------------------------------------- #
-#                                  Figure S8c                                  #
+#                                  Figure S7b                                  #
 # ---------------------------------------------------------------------------- #
 
 obj <- readRDS(params$path_to_amethys_obj)
@@ -298,10 +268,10 @@ p <- dimFeature(obj, colorBy = CellClass, reduction = "umap") +
     scale_color_manual(
         values = c("#87B5B1", "#E7298A", "#8C6D31", "#CCB883", "#E6AB02")
     )
-ggsave(p, filename = "FigS8c_cellclass_umap.pdf", path = params$plot_dir)
+ggsave(p, filename = "FigS7b_cellclass_umap.pdf", path = params$plot_dir)
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S8d                                  #
+#                                  Figure S7c                                  #
 # ---------------------------------------------------------------------------- #
 
 cellclass500bwindows <- calcSmoothedWindows(
@@ -326,7 +296,7 @@ obj@genomeMatrices[["cg_cellclass_tracks"]] <- obj@genomeMatrices[[
     with = FALSE
 ]
 pdf(
-    file = file.path(params$plot_dir, "FigS8_markers_heatmap.pdf"),
+    file = file.path(params$plot_dir, "FigS7c_markers_heatmap.pdf"),
     width = 15,
     height = 15
 )

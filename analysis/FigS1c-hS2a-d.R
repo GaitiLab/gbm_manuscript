@@ -1,4 +1,4 @@
-# ---- Code to reproduce Figure S2a-l ---- #
+# ---- Code to reproduce Figure S1c-h S2a-d ---- #
 
 # Unload all previously loaded packages + remove previous environment
 rm(list = ls(all = TRUE))
@@ -71,7 +71,7 @@ prog_like_cols <- c(
 color_palette <- c(nm_cols, malignant_cols)
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2a                                  #
+#                                  Figure S1c                                  #
 # ---------------------------------------------------------------------------- #
 # Import scVI embeddings
 dat <- read.csv(params$scvi_latent_rep_path, row.names = 1) # path to scvi latent rep
@@ -96,7 +96,7 @@ p <- DimPlot(
 )
 ggsave(
     p,
-    filename = "scvi_pt_malignant_umap.pdf",
+    filename = "S1c_scvi_pt_malignant_umap.pdf",
     path = plot_dir,
     height = 7,
     width = 9
@@ -137,7 +137,7 @@ p <- VlnPlot(
 )
 ggsave(
     plot = p,
-    filename = "S2a_PT_EGFR_PTPRZ1_expression.pdf",
+    filename = "S1c_PT_EGFR_PTPRZ1_expression.pdf",
     path = params$plot_dir,
     height = 5,
     width = 7
@@ -145,7 +145,7 @@ ggsave(
 
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2b                                  #
+#                                  Figure S1d                                  #
 # ---------------------------------------------------------------------------- #
 df <- seurat_obj[[]]
 df <- df %>%
@@ -192,14 +192,14 @@ p <- ggplot(df, aes(x = Sample, y = n, fill = factor(CellClass_L1))) +
     )
 ggsave(
     plot = p,
-    filename = "S2b_non_malig_cell_type_prop_by_sample.pdf",
+    filename = "S1d_non_malig_cell_type_prop_by_sample.pdf",
     path = params$plot_dir,
     height = 25,
     width = 25
 )
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2c                                  #
+#                                  Figure S1e                                  #
 # ---------------------------------------------------------------------------- #
 Idents(seurat_obj) <- "CellClass_L1"
 Idents(seurat_obj) <- factor(
@@ -251,14 +251,14 @@ p <- DotPlot(
     )
 ggsave(
     plot = p,
-    filename = "S2c_markers_dotplot.pdf",
+    filename = "S1e_markers_dotplot.pdf",
     path = params$plot_dir,
     height = 7,
     width = 5
 )
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2d                                  #
+#                                  Figure S1f                                  #
 # ---------------------------------------------------------------------------- #
 
 df <- seurat_obj[[]] %>%
@@ -292,7 +292,7 @@ p <- ggplot(df, aes(x = "", y = n, fill = factor(CellClass_L2))) +
     )
 ggsave(
     plot = p,
-    filename = "S2d_neuron_subtype_distribution.pdf",
+    filename = "S1f_neuron_subtype_distribution.pdf",
     path = plot_dir,
     width = 3
 )
@@ -320,7 +320,7 @@ p <- DotPlot(
     RotatedAxis()
 ggsave(
     plot = p,
-    filename = "S2d_neuron_markers.pdf",
+    filename = "S1f_neuron_markers.pdf",
     path = params$plot_dir,
     height = 6,
     width = 4
@@ -329,7 +329,7 @@ ggsave(
 rm(neurons)
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2e                                  #
+#                                  Figure S1g                                  #
 # ---------------------------------------------------------------------------- #
 
 df <- seurat_obj[[]] %>%
@@ -365,7 +365,7 @@ p <- ggplot(df, aes(x = Region, y = n, fill = factor(CCI_CellClass_L2))) +
     )
 ggsave(
     plot = p,
-    filename = "S2e_myeloid_subtype_distribution.pdf",
+    filename = "S1g_myeloid_subtype_distribution.pdf",
     path = params$plot_dir,
     width = 5
 )
@@ -392,7 +392,7 @@ p <- DotPlot(
     RotatedAxis()
 ggsave(
     plot = p,
-    filename = "S2e_myeloid_markers.pdf",
+    filename = "S1g_myeloid_markers.pdf",
     path = params$plot_dir,
     height = 6,
     width = 4
@@ -400,7 +400,7 @@ ggsave(
 
 rm(myeloid)
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2f                                  #
+#                                  Figure S1h                                  #
 # ---------------------------------------------------------------------------- #
 
 df <- seurat_obj[[]] %>%
@@ -442,27 +442,27 @@ p <- ggplot(df, aes(x = Region, y = Fraction, fill = Region)) +
     )
 ggsave(
     plot = p,
-    filename = "S2f_tumour_cell_purity.pdf",
+    filename = "S1h_tumour_cell_purity.pdf",
     path = params$plot_dir,
     width = 10,
     height = 10
 )
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2g                                  #
+#                                  Figure S2a                                  #
 # ---------------------------------------------------------------------------- #
 conf_cells <- seurat_obj[[]] %>% filter(is_malignant_confident == TRUE)
 conf_cell_id <- rownames(conf_cells)
 df <- read.csv("neftel_metamodule_scores.csv", row.names = 1)
 df <- df %>% filter(Cell_id %in% conf_cell_id)
 
-df$Type = NA
-df$Type[grep("NPC1", df$Neftel.modules)] = "NPC"
-df$Type[grep("NPC2", df$Neftel.modules)] = "NPC"
-df$Type[grep("MES1", df$Neftel.modules)] = "MES"
-df$Type[grep("MES2", df$Neftel.modules)] = "MES"
-df$Type[grep("OPC", df$Neftel.modules)] = "OPC"
-df$Type[grep("AC", df$Neftel.modules)] = "AC"
+df$Type <- NA
+df$Type[grep("NPC1", df$Neftel.modules)] <- "NPC"
+df$Type[grep("NPC2", df$Neftel.modules)] <- "NPC"
+df$Type[grep("MES1", df$Neftel.modules)] <- "MES"
+df$Type[grep("MES2", df$Neftel.modules)] <- "MES"
+df$Type[grep("OPC", df$Neftel.modules)] <- "OPC"
+df$Type[grep("AC", df$Neftel.modules)] <- "AC"
 
 NPC_num <- paste0("NPC-like (n=", length(df$Type[df$Type == "NPC"]), ")")
 MES_num <- paste0("MES-like (n=", length(df$Type[df$Type == "MES"]), ")")
@@ -590,13 +590,13 @@ a <- ggplot(df, aes(x = logneg, y = D)) +
 
 ggsave(
     plot = a,
-    filename = "S2g_Neftel_quadrant_plot.pdf",
+    filename = "S2a_Neftel_quadrant_plot.pdf",
     path = params$plot_dir,
     width = 15,
     height = 15
 )
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2h                                  #
+#                                  Figure S2b                                  #
 # ---------------------------------------------------------------------------- #
 
 df <- seurat_obj[[]] %>%
@@ -644,14 +644,14 @@ p <- ggplot(df, aes(x = Sample, y = n, fill = factor(CellClass_L3))) +
     )
 ggsave(
     plot = p,
-    filename = "S2h_cell_state_prop_by_sample.pdf",
+    filename = "S2b_cell_state_prop_by_sample.pdf",
     path = params$plot_dir,
     height = 25,
     width = 25
 )
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2i                                  #
+#                                  Figure S2c                                  #
 # ---------------------------------------------------------------------------- #
 # Neftel malignant state markers
 
@@ -705,7 +705,7 @@ p <- DotPlot(
     RotatedAxis()
 ggsave(
     plot = p,
-    filename = "S2i_malignant_markers_dotplot.pdf",
+    filename = "S2c_malignant_markers_dotplot.pdf",
     path = plot_dir,
     height = 5,
     width = 8
@@ -714,7 +714,7 @@ ggsave(
 rm(malig_dotplot)
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2j                                  #
+#                                  Figure S2d                                  #
 # ---------------------------------------------------------------------------- #
 df <- seurat_obj[[]] %>%
     filter(is_malignant_confident == TRUE) %>%
@@ -762,40 +762,16 @@ for (subtype in unique(df$CellClass_L3)) {
 plots <- wrap_plots(plots, ncol = 3, nrow = 3, guides = "collect")
 ggsave(
     plots,
-    filename = "S2j_malignant_sample_cell_type_props.pdf",
+    filename = "S2d_malignant_sample_cell_type_props.pdf",
     path = params$plot_dir,
     width = 10,
     height = 14
 )
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2k                                  #
+#                                  Figure S2e                                  #
 # ---------------------------------------------------------------------------- #
 gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
-
-# Invasivity signature (Venkataramani 2022)
-invasivity_up <- gene_lists %>%
-    filter(!is.na(Venkataramani_invasivity_up)) %>%
-    pull(Venkataramani_invasivity_up)
-
-invasivity_dn <- gene_lists %>%
-    filter(!is.na(Venkataramani_invasivity_dn)) %>%
-    pull(Venkataramani_invasivity_dn)
-
-invasivity <- list(invasivity_up, invasivity_dn)
-names(invasivity) <- c("invasivity_up", "invasivity_dn")
-
-# Connectivity (Hai 2024)
-connectivity_up <- gene_lists %>%
-    filter(!is.na(Hai_connectivity_up)) %>%
-    pull(Hai_connectivity_up)
-
-connectivity_dn <- gene_lists %>%
-    filter(!is.na(Hai_connectivity_dn)) %>%
-    pull(Hai_connectivity_dn)
-
-connectivity <- list(connectivity_up, connectivity_dn)
-names(connectivity) <- c("Connectivity_up", "Connectivity_dn")
 
 # Developmental, injury response (Richards 2021)
 richards_dev <- gene_lists %>%
@@ -825,57 +801,22 @@ tnf_markers <- gene_lists %>%
 tnf_markers <- list(tnf_markers)
 names(tnf_markers) <- "TNF_alpha"
 
-# Hallmark EMT
-emt_markers <- gene_lists %>%
-    filter(!is.na(Hallmark_EMT)) %>%
-    pull(Hallmark_EMT)
-
-emt_markers <- list(emt_markers)
-names(emt_markers) <- "EMT"
-
-# Darmanis 2017
-infiltrating_margin <- gene_lists %>%
-    filter(!is.na(Darmanis_infiltration)) %>%
-    pull(Darmanis_infiltration)
-
-infiltrating_margin <- list(infiltrating_margin)
-names(infiltrating_margin) <- "Infiltration"
-
-# Garofano
-garofano_neu <- gene_lists %>%
-    filter(!is.na(Garofano_NEU)) %>%
-    pull(Garofano_NEU)
-
-garofano_neu <- list(garofano_neu)
-names(garofano_neu) <- "Infiltration"
-
 # Combine gene signatures
 
 genesets <- c(
-    invasivity,
     richards_gene_list,
     hypoxia_markers,
     tnf_markers,
-    emt_markers,
-    connectivity,
-    garofano_neu,
-    infiltrating_margin
 )
 
 seurat_obj <- AddModuleScore(seurat_obj, features = genesets, name = "geneset")
 
 score_df <- seurat_obj[[]][, grepl("geneset", colnames(seurat_obj[[]]))]
 colnames(score_df) <- auc_colnames
-score_df$Invasivity <- score_df$invasivity_up - score_df$invasivity_dn
-score_df <- score_df[, -which(colnames(score_df) == "invasivity_up")]
-score_df <- score_df[, -which(colnames(score_df) == "invasivity_dn")]
 score_df$Richards <- score_df$Richards_Developmental -
     score_df$Richards_Injury_Response
 score_df <- score_df[, -which(colnames(score_df) == "Richards_Developmental")]
 score_df <- score_df[, -which(colnames(score_df) == "Richards_Injury_Response")]
-score_df$Connectivity <- score_df$Connectivity_up - score_df$Connectivity_dn
-score_df <- score_df[, -which(colnames(score_df) == "Connectivity_up")]
-score_df <- score_df[, -which(colnames(score_df) == "Connectivity_dn")]
 
 df <- as.data.table(seurat_obj@meta.data)[, .(
     Region,
@@ -937,14 +878,14 @@ plots <- wrap_plots(
     theme(legend.position = "bottom")
 ggsave(
     plots,
-    filename = "S2k_mod_score_gene_sig_boxplots_sample_level.pdf",
+    filename = "S2e_mod_score_gene_sig_boxplots_sample_level.pdf",
     path = params$plot_dir,
     height = 25,
     width = 18
 )
 
 # ---------------------------------------------------------------------------- #
-#                                  Figure S2l                                  #
+#                                  Figure S2f                                  #
 # ---------------------------------------------------------------------------- #
 
 df <- seurat_obj[[]] %>%
@@ -995,7 +936,7 @@ for (celltype in unique(df$CellClass_L1)) {
 plots <- wrap_plots(plots, ncol = 2, nrow = 2, guides = "collect")
 ggsave(
     plots,
-    filename = "S2l_nonmalignant_sample_cell_type_props.pdf",
+    filename = "S2f_nonmalignant_sample_cell_type_props.pdf",
     path = params$plot_dir,
     height = 9,
     width = 9
