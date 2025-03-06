@@ -46,7 +46,6 @@ vignettes/*.pdf
 ._.*
 ._*
 .DS_Store
-jobs/pipeline_runs/*/.nextflow/*
 
 # Python
 Python/__pycache__
@@ -60,11 +59,19 @@ slurm_out
 
 output/
 data/
-misc/
+
 
 analysis/run_notebooks.R
 analysis/run_notebooks.sh
 TEST-*
 tmp.txt
 
-000_ARCHIVED
+**/000_ARCHIVED
+.nextflow
+preprocessing/scRNAseq/CCI_CellClass_L2_2/gaitilab.config
+
+
+misc/internal
+# TODO remove once supptables finalized
+misc/SuppTables
+internal_scripts
