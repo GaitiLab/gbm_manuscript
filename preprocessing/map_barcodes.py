@@ -160,7 +160,7 @@ def map_barcodes(
     # NOTE this is different from previous approach, comparing the bin polygon and the segmentation polygon
     result_spatial_join = gpd.sjoin(
         gdf_barcodes, gdf_segmentation, how="left", predicate="covered_by"
-    )
+    ) 
 
     # Identify nuclei associated barcodes and find barcodes that are in more than one nucleus
     result_spatial_join["is_within_polygon"] = ~result_spatial_join[
