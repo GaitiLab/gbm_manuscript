@@ -47,7 +47,7 @@ params <- list(
     heatmap_data_rna_path = "multiome_results/12_SCENIC_plus/outs/RNA_heatmap.csv",
     heatmap_data_atac_path = "multiome_results/12_SCENIC_plus/outs/ATAC_heatmap.csv",
     TFs_to_plot_path = "multiome_results/12_SCENIC_plus/outs/TFs_to_plot.csv",
-    genelists_csv_path = "misc/SuppTables/Table S2.xlsx"
+    genelists_csv_path = "misc/gene_signatures.xlsx"
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)

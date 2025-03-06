@@ -31,7 +31,7 @@ params <- list(
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
     protein_coding_genes_list_path = "misc/ensembl_protein_coding_genes.csv",
-    genelists_path = "misc/SuppTables/Table S2.xlsx"
+    genelists_path = "misc/gene_signatures.xlsx"
 )
 
 # Creating directories needed for outputs

@@ -29,10 +29,9 @@ params <- list(
     seurat_obj_path = "",
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
-    # path to Krishna 2023 data. Data can be downloaded on GEO
-    krishna2023_dir_path = "/Krishna_2023",
-    genelists_path = "misc/SuppTables/Table S2.xlsx",
-    degs_table_path = "misc/SuppTables/Table S3.xlsx"
+    krishna2023_dir_path = "/Krishna_2023", # path to Krishna 2023 data. Data can be downloaded on GEO
+    genelists_path = "misc/gene_signatures.xlsx",
+    degs_table_path = "misc/Table S2.xlsx" # can be downloaded online
 )
 
 # Creating directories needed for outputs

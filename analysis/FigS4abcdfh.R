@@ -27,9 +27,9 @@ params <- list(
     seurat_obj_path = "",
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
-    fgseares_c2_cp_path = "misc/SuppTables/Table S2.xlsx",
-    degs_table_path = "misc/SuppTables/Table S3.xlsx",
-    genelists_path = "misc/SuppTables/Table S2.xlsx",
+    fgseares_c2_cp_path = "misc/Table S2.xlsx", # can be downloaded online
+    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online
+    genelists_path = "misc/gene_signatures.xlsx",
     gbmap_core_obj_path = "gbmap_core.rds"
 )
 

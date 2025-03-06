@@ -34,10 +34,10 @@ params <- list(
     plot_dir = "output/submission/figures",
     seurat_obj_path = "",
     protein_coding_genes_list_path = "misc/ensembl_protein_coding_genes.csv",
-    multiome_factors_spectra_path = "misc/multiome_top_up_rna.spectra.k_7.dt_0_5.consensus.txt",
-    parsebio_factors_spectra_path = "misc/parsebio_top_up_rna.spectra.k_7.dt_0_5.consensus.txt",
+    multiome_factors_spectra_path = "misc/multiome_rna.spectra.k_7.dt_0_5.consensus.txt",
+    parsebio_factors_spectra_path = "misc/parsebio_rna.spectra.k_7.dt_0_5.consensus.txt",
     usage_mtx_path = "misc/usage_mtx.csv",
-    genelists_path = "misc/SuppTables/Table S2.xlsx",
+    genelists_path = "misc/gene_signatures.xlsx",
 )
 
 # Creating directories needed for outputs
