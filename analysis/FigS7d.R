@@ -47,8 +47,8 @@ params <- list(
     include_regions = NULL,
     topVarGenes = 10000,
     folder_name = "CellClass_L5_2_archr_top10000",
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
+    output_dir = "output",
+    plot_dir = "output/figures",
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)

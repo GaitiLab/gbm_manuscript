@@ -23,8 +23,8 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    plot_dir = "output/submission/figures",
-    interactions_path = "misc/Table S2.xlsx", # can be downloaded online
+    plot_dir = "output/figures",
+    interactions_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
     condition_varname = "Region",
     group1 = "PT",
     group2 = "TC",

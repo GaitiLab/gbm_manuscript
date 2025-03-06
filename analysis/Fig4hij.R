@@ -35,8 +35,9 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
+    output_dir = "output",
+    plot_dir = "output/figures",
+    # generated using this manuscript's data, which can be downloaded online, see publication
     amethyst_obj_path = "path_to_amethyst_obj",
     c2_gmt_path = "c2.all.v2023.1.Hs.symbols.gmt", # download from msigdb
     genelists_path = "misc/gene_signatures.xlsx"
@@ -262,9 +263,7 @@ markers <- markers %>%
     filter(grouping_var == "PT") %>%
     mutate(fdr = p.adjust(p.val, "BH"))
 
-# TODO replace with SuppTable use
 gene_lists <- readxl::read_excel(params$genelists_path, skip = 1)
-
 
 pathway_gobert <- gene_lists %>%
     filter(!is.na(Gobert_Oligodendrocyte_Differentiation_Up)) %>%

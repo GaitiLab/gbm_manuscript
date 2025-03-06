@@ -69,7 +69,8 @@ plot_invasion_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -255,7 +256,8 @@ plot_invasion_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -373,7 +375,8 @@ plot_transition_probabilities_per_sample <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -554,7 +557,8 @@ plot_transition_difference <- function(
     curr_seurat_obj,
     TF_to_perturb,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(
@@ -675,7 +679,8 @@ plot_signature_change_probabilities_per_sample <- function(
     TF_to_perturb,
     signature,
     perturbation_dir,
-    annotation_column) {
+    annotation_column
+) {
     # Ensure the annotation column is a valid column in the Seurat object
     if (!annotation_column %in% colnames(curr_seurat_obj[[]])) {
         stop(

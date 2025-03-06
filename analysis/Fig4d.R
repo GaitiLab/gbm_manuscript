@@ -15,7 +15,7 @@ pacman::p_load(data.table, tidyverse, ggplot2, ggrepel)
 # Required inputs
 params <- list(
     motif_results_dir = "misc/data/homer_motif",
-    plot_dir = "output/submission/figures"
+    plot_dir = "output/figures"
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)

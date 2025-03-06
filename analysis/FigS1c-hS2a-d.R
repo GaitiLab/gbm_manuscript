@@ -22,9 +22,10 @@ pacman::p_load(
 
 # Required inputs
 params <- list.files(
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     seurat_obj_path = "",
-    plot_dir = "output/submission/figures",
-    scvi_latent_rep_path = "snrnaseq_umap_coords.csv"
+    plot_dir = "output/figures",
+    scvi_latent_rep_path = "misc/snrnaseq_umap_coords.csv"
 )
 
 
@@ -33,7 +34,7 @@ GaitiLabUtils::create_dir(params$plot_dir)
 
 
 # Loading Seurat object
-seurat_obj <- readRDS(params$path_to_seurat_object)
+seurat_obj <- readRDS(params$seurat_obj_path)
 
 print(seurat_obj)
 

@@ -36,10 +36,10 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    # Path to Seurat object generated using this manuscript's data
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     seurat_obj_path = "",
-    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online
-    plot_dir = "output/submission/figures"
+    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
+    plot_dir = "output/figures"
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)

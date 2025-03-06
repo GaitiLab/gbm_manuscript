@@ -25,11 +25,11 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    # Path to Seurat object generated using this manuscript's data
-    path_to_seurat_object = "",
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
-    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
+    seurat_obj_path = "",
+    output_dir = "output",
+    plot_dir = "output/figures",
+    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
     # Download ST data from https://github.com/tiroshlab/Spatial_Glioma
     path_to_greenwald_data_dir = "data/Greenwald2023",
     path_to_greenwald_metadata = "misc/Greenwald2023_metadata.csv",

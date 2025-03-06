@@ -29,9 +29,9 @@ logr <- GaitiLabUtils::init_logging()
 params <- list(
     # path pointing to the parent directory with sample directories (masks + seurat obj)
     input_dir = "data/visiumhd/processed",
-    # path pointing to the spatial_outs directory with the two 6425 samples (A + B)
+    # path pointing to the spatial_outs directory with the two 6425 samples (A + B) can be downloaded, see publication
     spatial_outs_parent_dir = "data/visiumhd/spatial_outs/",
-    plot_dir = "output/submission/figures"
+    plot_dir = "output/figures"
 )
 GaitiLabUtils::create_dir(params$plot_dir)
 

@@ -26,12 +26,13 @@ region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
 
 # Required inputs
 params <- list(
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     seurat_obj_path = "",
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
+    output_dir = "output",
+    plot_dir = "output/figures",
     krishna2023_dir_path = "/Krishna_2023", # path to Krishna 2023 data. Data can be downloaded on GEO
     genelists_path = "misc/gene_signatures.xlsx",
-    degs_table_path = "misc/Table S2.xlsx" # can be downloaded online
+    degs_table_path = "misc/Table S2.xlsx" # can be downloaded online, see publication
 )
 
 # Creating directories needed for outputs

@@ -30,8 +30,9 @@ region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
 
 # Required inputs
 params <- list(
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
+    output_dir = "output",
+    plot_dir = "output/figures",
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     seurat_obj_path = "",
     protein_coding_genes_list_path = "misc/ensembl_protein_coding_genes.csv",
     multiome_factors_spectra_path = "misc/multiome_rna.spectra.k_7.dt_0_5.consensus.txt",
@@ -306,13 +307,16 @@ msigdb_cat_list <- list(
 universe_genes <- colnames(multiome_factors)
 
 for (curr_factor in names(markers)) {
-
     all_sig_results <- c()
     for (j in seq(1, length(msigdb_cat_list))) {
         curr_cat <- msigdb_cat_list[[j]]
 
         if (length(curr_cat) == 2) {
-            curr_gene_sets <- msigdbr(species = "human", category = curr_cat[1], subcategory = curr_cat[2])
+            curr_gene_sets <- msigdbr(
+                species = "human",
+                category = curr_cat[1],
+                subcategory = curr_cat[2]
+            )
         } else {
             curr_gene_sets <- msigdbr(species = "human", category = curr_cat[1])
         }

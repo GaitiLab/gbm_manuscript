@@ -56,7 +56,8 @@ plot_cor_TF_and_inv_per_cell <- function(
     curr_seurat_data,
     tf_name,
     chromVar_names_path,
-    plot_dir) {
+    plot_dir
+) {
     # Get invasive signature score at single cell level
     invasive_score <- curr_seurat_data[[]] %>%
         select(invasive_score) %>%
@@ -73,8 +74,7 @@ plot_cor_TF_and_inv_per_cell <- function(
 
     # Split the matrix into two parts
     chromVar_matrix_1 <- chromVar_matrix[, 1:(ncol(chromVar_matrix) / 2)]
-    chromVar_matrix_2 <- chromVar_matrix[
-        ,
+    chromVar_matrix_2 <- chromVar_matrix[,
         (ncol(chromVar_matrix) / 2 + 1):ncol(chromVar_matrix)
     ]
 
@@ -102,8 +102,7 @@ plot_cor_TF_and_inv_per_cell <- function(
             chromVar_names
         )
         valid_matches <- matched_names[!is.na(matched_names)]
-        chromVar_matrix_2 <- chromVar_matrix_2[
-            ,
+        chromVar_matrix_2 <- chromVar_matrix_2[,
             colnames(chromVar_matrix_2) %in% names(valid_matches)
         ]
         colnames(chromVar_matrix_2) <- valid_matches[match(

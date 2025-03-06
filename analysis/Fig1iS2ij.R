@@ -24,7 +24,8 @@ logr <- GaitiLabUtils::init_logging()
 # Required inputs
 params <- list(
     output_dir = "output/submission/",
-    plot_dir = "output/submission/figures",
+    plot_dir = "output/figures",
+    # TODO add where to download
     input_dir = "data/GBM_mIHC"
 )
 

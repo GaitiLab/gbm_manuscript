@@ -23,10 +23,10 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    plot_dir = "output/submission/figures",
-    # scRNAseq Seurat object
+    plot_dir = "output/figures",
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     seurat_obj_path = "",
-    interactions_path = "misc/Table S2.xlsx", # can be downloaded online
+    interactions_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
     condition_varname = "Region",
     pval_type = "pval_adj",
     condition_oi = "PT",

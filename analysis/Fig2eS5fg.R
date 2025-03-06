@@ -25,15 +25,16 @@ logr <- init_logging()
 
 # Required inputs
 params <- list(
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
+    output_dir = "output",
+    plot_dir = "output/figures",
     k_neighbors = 30,
-    n_iter = 10000, # original
+    n_iter = 10000,
     lower_limit = 0.10,
     upper_limit = 0.90,
+    # Paths to Seurat objects generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     seurat_obj_6425_A_path = "data/visiumhd/processed/6425_A/6425_A.rds",
     seurat_obj_6425_B_path = "data/visiumhd/processed/6425_B/6425_B.rds",
-    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online
+    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
     genelists_path = "misc/gene_signatures.xlsx",
     n_cores = 4
 )

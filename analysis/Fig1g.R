@@ -14,7 +14,7 @@ pacman::p_load(data.table, ggplot2, stringr, dplyr, fgsea)
 
 # Required inputs
 params <- list(
-    output_dir = "output/submission",
+    output_dir = "output",
     c5_gmt_path = "misc/c5.go.v2023.2.Hs.symbols.gmt", # download from msigdb
     de_results_path = file.path(params$output_dir, "Fig1f_de_results.csv") # from Fig1f
 )

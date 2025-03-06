@@ -14,13 +14,13 @@ pacman::p_load(igraph, readr, data.table, tidyverse, eulerr)
 # Required inputs
 params <- list(
     gene_lists_path = "misc/venn_uncommitted_opc_TFs.csv",
-    plot_dir = "output/submission/figures",
+    plot_dir = "output/figures",
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)
 
 # Load gene lists
-gene_lists_df <- read.csv("/cluster/projects/gaitigroup/Users/Yiyan/GBM_10x/misc/data/venn_uncommitted_opc_TFs.csv", stringsAsFactors = FALSE)
+gene_lists_df <- read.csv(gene_lists_path, stringsAsFactors = FALSE)
 gene_lists <- split(gene_lists_df$Gene, gene_lists_df$Category)
 
 # Plot the Venn diagram

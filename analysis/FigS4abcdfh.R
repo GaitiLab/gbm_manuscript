@@ -22,13 +22,14 @@ pacman::p_load(
 
 region_cols <- c(PT = "#0173b2", TE = "#de8f05", TC = "#029e73")
 
-# Enter paths here
+# Required inputs
 params <- list(
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     seurat_obj_path = "",
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
-    fgseares_c2_cp_path = "misc/Table S2.xlsx", # can be downloaded online
-    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online
+    output_dir = "output",
+    plot_dir = "output/figures",
+    fgseares_c2_cp_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
+    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online, see publication
     genelists_path = "misc/gene_signatures.xlsx",
     gbmap_core_obj_path = "gbmap_core.rds"
 )
@@ -44,8 +45,8 @@ res <- readxl::read_excel(
     params$fgseares_c2_cp_path,
     sheet = "C2_CP pathways in inv high",
     skip = 1
-    )
-    
+)
+
 pathways <- c(
     "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
     "REACTOME_NEURONAL_SYSTEM",

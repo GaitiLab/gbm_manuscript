@@ -34,15 +34,15 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    plot_dir = "output/submission/figures",
-    # Path to Seurat object generated using this manuscript's data
-    merged_seurat_obj_path = ""
+    plot_dir = "output/figures",
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
+    seurat_obj_path = ""
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)
 
 # Load seurat object for visualization
-curr_seurat_data <- readRDS(params$merged_seurat_obj_path)
+curr_seurat_data <- readRDS(params$seurat_obj_path)
 curr_seurat_data <- subset(
     curr_seurat_data,
     subset = CellClass_L1 == "Malignant"

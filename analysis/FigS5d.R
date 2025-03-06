@@ -23,9 +23,9 @@ logr <- GaitiLabUtils::init_logging()
 
 # Required inputs
 params <- list(
-    # path pointing to the parent directory with sample directories (masks + seurat obj)
+    # path pointing to the parent directory with sample directories (masks + seurat obj); Seurat objects generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
     input_dir = "data/visiumhd/processed",
-    plot_dir = "output/submission/figures"
+    plot_dir = "output/figures"
 )
 
 sample_ids <- c(

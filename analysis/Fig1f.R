@@ -26,10 +26,10 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    # Path to Seurat object generated using this manuscript's data
-    path_to_seurat_object = "",
-    output_dir = "output/submission",
-    plot_dir = "output/submission/figures",
+    # Path to Seurat object generated using this manuscript's data, raw data and final metadata can be downloaded online, see publication
+    seurat_obj_path = "",
+    output_dir = "output",
+    plot_dir = "output/figures",
     protein_coding_genes_list_path = "misc/ensembl_protein_coding_genes.csv",
     genelists_path = "misc/gene_signatures.xlsx"
 )
@@ -39,7 +39,7 @@ GaitiLabUtils::create_dir(params$output_dir)
 GaitiLabUtils::create_dir(params$plot_dir)
 
 # ---- Load data & Data wrangling ---- #
-seurat_object <- readRDS(params$path_to_seurat_object)
+seurat_object <- readRDS(params$seurat_obj_path)
 
 # Prepare groups for comparison
 # Sample level region comparisons

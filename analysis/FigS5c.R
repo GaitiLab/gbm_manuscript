@@ -31,7 +31,7 @@ logr <- GaitiLabUtils::init_logging()
 params <- list(
     # path pointing to the output directory of inferCNV
     input_dir = "GBM_VisiumHD/results/InferCNV",
-    plot_dir = "output/submission/figures"
+    plot_dir = "output/figures"
 )
 GaitiLabUtils::create_dir(params$plot_dir)
 

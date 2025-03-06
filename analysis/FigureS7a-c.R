@@ -25,7 +25,8 @@ pacman::p_load(
 
 # Required inputs
 params <- list(
-    plot_dir = "output/submission/figures",
+    plot_dir = "output/figures",
+    # generated using this manuscript's data, which can be downloaded online, see publication
     path_to_amethys_obj = "path_to_amethyst_obj"
 )
 
@@ -78,7 +79,8 @@ cnvInference <- function(
     k = 2,
     cluster_cells = FALSE,
     save = FALSE,
-    matrix_name = "cnv_matrix") {
+    matrix_name = "cnv_matrix"
+) {
     # Get CpG coverage matrix
     obj@genomeMatrices[["cov"]] <- makeWindows_cov(
         obj,
