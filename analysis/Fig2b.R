@@ -15,7 +15,7 @@ pacman::p_load(dplyr, ggplot2, ggrepel)
 # Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
-    interactions_path = "misc/Table S2.xlsx"
+    interactions_path = "misc/Table S2.xlsx" # can be downloaded online
 )
 
 # Creating directories needed for outputs

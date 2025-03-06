@@ -34,7 +34,7 @@ params <- list(
     braun_h5ad_path = "developing_opc.h5ad",
     braun_subsampled_h5ad_path = "developing_brain_subsampled.h5ad",
     genelists_path = "misc/gene_signatures.xlsx",
-    degs_table_path = "misc/Table S2.xlsx"
+    degs_table_path = "misc/Table S2.xlsx" # can be downloaded online
 )
 
 # Creating directories needed for outputs

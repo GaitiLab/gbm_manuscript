@@ -37,7 +37,7 @@ pacman::p_load(
 # Required inputs
 params <- list(
     seurat_obj_path = "",
-    degs_table_path = "misc/Table S2.xlsx",
+    degs_table_path = "misc/Table S2.xlsx", # can be downloaded online
     plot_dir = "output/submission/figures"
 )
 

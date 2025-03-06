@@ -31,7 +31,7 @@ params <- list(
     plot_dir = "output/submission/figures",
     krishna2023_dir_path = "/Krishna_2023", # path to Krishna 2023 data. Data can be downloaded on GEO
     genelists_path = "misc/gene_signatures.xlsx",
-    degs_table_path = "misc/Table S2.xlsx"  
+    degs_table_path = "misc/Table S2.xlsx" # can be downloaded online
 )
 
 # Creating directories needed for outputs

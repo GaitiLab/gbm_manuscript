@@ -24,7 +24,7 @@ pacman::p_load(
 # Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
-    interactions_path = "misc/Table S2.xlsx",
+    interactions_path = "misc/Table S2.xlsx", # can be downloaded online
     is_directed = TRUE,
     condition_varname = "Region",
     sender = "Glutamatergic",

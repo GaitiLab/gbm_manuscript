@@ -26,7 +26,7 @@ params <- list(
     plot_dir = "output/submission/figures",
     # scRNAseq Seurat object
     seurat_obj_path = "",
-    interactions_path = "misc/Table S2.xlsx",
+    interactions_path = "misc/Table S2.xlsx", # can be downloaded online
     condition_varname = "Region",
     pval_type = "pval_adj",
     condition_oi = "PT",

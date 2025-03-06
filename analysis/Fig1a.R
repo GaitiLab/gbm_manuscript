@@ -26,7 +26,7 @@ cell_border_fun <- function(j, i, x, y, width, height, fill) {
 # Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
-    input_table_path = "misc/Table S1.xlsx"
+    input_table_path = "misc/Table S1.xlsx" # can be downloaded online
 )
 
 GaitiLabUtils::create_dir(params$plot_dir)
