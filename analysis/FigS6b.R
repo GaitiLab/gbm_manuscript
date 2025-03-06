@@ -30,20 +30,24 @@ pacman::p_load(
 
 params <- list(
     # Processed using Mathur 2024 data. Data can be downloaded on GEO - GSE226726
-    input = "GBM3D"
+    gbm3d_seurat_obj_path = "GBM3D.rds",
+    # TODO change path accordingly
+    chromVar_names_path = "misc/data/chromVar_names.csv",
+    plot_dir = "output/figures"
 )
 
 # Load the Seurat object
-curr_seurat_data <- readRDS(paste0(params$input, "/GBM3D.rds"))
+curr_seurat_data <- readRDS(params$gbm3d_seurat_obj_path)
 
 plot_cor_TF_and_inv_per_cell <- function(
     curr_seurat_data,
     tf_name,
     chromVar_names_path,
-    plot_dir) {
+    plot_dir
+) {
     # Get invasive signature score at single cell level
     invasive_score <- curr_seurat_data[[]] %>%
-        select(invasive_score) %>%
+        dplyr::select(invasive_score) %>%
         rownames_to_column(var = "Cell_id")
 
     # ChromVar score for the given transcription factor
@@ -57,8 +61,7 @@ plot_cor_TF_and_inv_per_cell <- function(
 
     # Split the matrix into two parts
     chromVar_matrix_1 <- chromVar_matrix[, 1:(ncol(chromVar_matrix) / 2)]
-    chromVar_matrix_2 <- chromVar_matrix[
-        ,
+    chromVar_matrix_2 <- chromVar_matrix[,
         (ncol(chromVar_matrix) / 2 + 1):ncol(chromVar_matrix)
     ]
 
@@ -86,8 +89,7 @@ plot_cor_TF_and_inv_per_cell <- function(
             chromVar_names
         )
         valid_matches <- matched_names[!is.na(matched_names)]
-        chromVar_matrix_2 <- chromVar_matrix_2[
-            ,
+        chromVar_matrix_2 <- chromVar_matrix_2[,
             colnames(chromVar_matrix_2) %in% names(valid_matches)
         ]
         colnames(chromVar_matrix_2) <- valid_matches[match(
@@ -173,7 +175,7 @@ for (tf_name in TFs_to_plot) {
     plot_cor_TF_and_inv_per_cell(
         curr_seurat_data,
         tf_name,
-        "misc/data/chromVar_names.csv",
-        plot_dir
+        params$chromVar_names_path,
+        params$plot_dir
     )
 }

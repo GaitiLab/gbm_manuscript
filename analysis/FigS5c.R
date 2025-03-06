@@ -29,7 +29,7 @@ logr <- GaitiLabUtils::init_logging()
 
 # Required inputs
 params <- list(
-    input = "msic/InferCNV.csv",
+    input = "misc/InferCNV.csv",
     plot_dir = "output/figures"
 )
 GaitiLabUtils::create_dir(params$plot_dir)
