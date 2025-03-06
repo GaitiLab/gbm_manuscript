@@ -24,7 +24,7 @@ pacman::p_load(
 # Required inputs
 params <- list(
     plot_dir = "output/submission/figures",
-    interactions_path = "misc/SuppTables/Table S4.xlsx",
+    interactions_path = "misc/Table S2.xlsx",
     condition_varname = "Region",
     group1 = "PT",
     group2 = "TC",

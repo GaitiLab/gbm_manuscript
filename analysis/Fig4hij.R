@@ -38,8 +38,8 @@ params <- list(
     output_dir = "output/submission",
     plot_dir = "output/submission/figures",
     amethyst_obj_path = "path_to_amethyst_obj",
-    c2_gmt_path = "c2.all.v2023.1.Hs.symbols.gmt",
-    genelists_path = "misc/SuppTables/Table S2.xlsx"
+    c2_gmt_path = "c2.all.v2023.1.Hs.symbols.gmt", # download from msigdb
+    genelists_path = "misc/gene_signatures.xlsx"
 )
 
 GaitiLabUtils::create_dir(params$output_dir)

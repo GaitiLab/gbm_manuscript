@@ -33,8 +33,8 @@ params <- list(
     upper_limit = 0.90,
     seurat_obj_6425_A_path = "data/visiumhd/processed/6425_A/6425_A.rds",
     seurat_obj_6425_B_path = "data/visiumhd/processed/6425_B/6425_B.rds",
-    degs_table_path = "misc/SuppTables/Table S3.xlsx",
-    genelists_path = "misc/SuppTables/Table S2.xlsx",
+    degs_table_path = "misc/Table S2.xlsx",
+    genelists_path = "misc/gene_signatures.xlsx",
     n_cores = 4
 )
 
