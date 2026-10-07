@@ -78,7 +78,7 @@ distance_labels <- setNames(
 
 # Load DEGs to extract invasive signature up
 degs <- readxl::read_excel(
-    params$params$degs_table_path,
+    params$degs_table_path,
     sheet = "DEGs",
     skip = 1
 ) %>%
@@ -106,7 +106,7 @@ markers <- list(
     Progenitor_like = unique(
         c(
             neftel_gene_list$Neftel_OPC,
-            neftel_gene_list$Neftel_NP2,
+            neftel_gene_list$Neftel_NPC2,
             neftel_gene_list$Neftel_NPC1
         )
     ),
